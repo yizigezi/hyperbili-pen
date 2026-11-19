@@ -23,24 +23,4 @@ class App extends $falcon.App {
   }
 }
 
-// 与 doge-reader / readex-nt 保持一致：为 Falcon/QuickJS 页面运行环境补齐基础全局对象。
-try {
-  globalThis['window'] = {
-    requestAnimationFrame,
-    cancelAnimationFrame
-  }
-} catch (err) {
-  console.log(err)
-}
-
-try {
-  globalThis['process'] = {
-    env: {
-      NODE_ENV: 'production'
-    }
-  }
-} catch (err) {
-  console.log(err)
-}
-
 export default App
