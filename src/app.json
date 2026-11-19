@@ -1,0 +1,7 @@
+{
+  "pages": {
+    "login": "pages/login/index.vue",
+    "dmlist": "pages/dmlist/index.vue",
+    "dmpage": "pages/dmpage/index.vue"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "hyperbili-pen",
+  "appid": "8026111800000001",
+  "version": "0.1.0",
+  "description": "澎湃哔哩 for 有道词典笔：登录 + 私信（HyperBilibili 移植，纯前端）",
+  "icon": "app_icon.png",
+  "license": "GPL-3.0",
+  "quickjs": {
+    "version": "20200705",
+    "bigNum": false
+  },
+  "simulator": {
+    "path": "",
+    "page": ""
+  },
+  "single-js-bundle": false,
+  "scripts": {
+    "start": "aiot-cli preview",
+    "build": "aiot-cli -p",
+    "build:dev": "aiot-cli",
+    "build:bin": "aiot-cli -q -p",
+    "build:prod": "aiot-cli -c -q -p",
+    "build:bin-nopack": "aiot-cli -q",
+    "build:web": "aiot-cli build-web",
+    "build:simulator": "aiot-cli simulator ./",
+    "check": "aiot-cli check",
+    "check:beta": "aiot-cli check -b"
+  },
+  "keywords": [
+    "iot",
+    "miniapp",
+    "bilibili"
+  ],
+  "devDependencies": {},
+  "dependencies": {
+    "falcon-ui": "^2.0.2"
+  }
+}
