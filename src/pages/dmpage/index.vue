@@ -141,7 +141,7 @@ export default {
         if (!biliclient.accountInfo) {
           const ok = await biliclient.updateAccountInfo()
           if (!ok) {
-            $falcon.navTo('login')
+            $falcon.navTo('index')
             return
           }
         }

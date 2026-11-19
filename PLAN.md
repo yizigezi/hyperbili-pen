@@ -98,3 +98,4 @@ hyperbili-pen/
 - [ ] `import('http')`/`import('storage')` 在固件里是否存在（不存在则走 execShell 兜底）
 - [ ] dmpage 消息滚到底部（$element/scrollTo 待验证）
 - [ ] install.sh 走 adb 实测
+8. **启动路由必须叫 `index`**：falcon 启动（真机 + web 预览 harness）默认打开名为 `index` 的页面，app.json 里没有 index 项就是 404 黑屏。2026-11-19 真机黑屏即此因（GPT 删 window/process shim 未对症，已恢复为防御式写法）。
