@@ -105,6 +105,7 @@ done:
 int cs_load(const char *path, const char *password, unsigned char **out_data, size_t *out_len) {
     int fd = -1, rc = -2, a = 0, b = 0;
     struct stat st;
+    memset(&st, 0, sizeof(st));
     unsigned char *buf = NULL, *plain = NULL, key[CS_KEY_LEN];
     const unsigned char *salt, *nonce, *tag, *cipher;
     size_t cipher_len = 0;
