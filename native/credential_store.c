@@ -149,4 +149,4 @@ int cs_delete(const char *path) {
     if (unlink(path) == 0 || errno == ENOENT) return 0;
     return -2;
 }
-void cs_free(void *ptr) { free(ptr); }
+void cs_free(void *ptr, size_t len) { if (ptr) { OPENSSL_cleanse(ptr, len); free(ptr); } }
