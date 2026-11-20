@@ -5,6 +5,7 @@
         <text class="title">扫码登录哔哩哔哩</text>
         <text class="hint">{{ hint }}</text>
         <text v-if="!show_qr" class="status">{{ status }}</text>
+        <text class="storage-debug">{{ storageInfo }}</text>
         <div class="retry" v-if="show_retry" @click="GetQR">
           <text class="retry-text">刷新二维码</text>
         </div>
@@ -38,16 +39,48 @@ export default {
       show_retry: false,
       status: '正在获取二维码...',
       hint: '打开手机哔哩哔哩扫码登录',
+      storageInfo: 'Falcon Storage: 检测中...',
       toast: '',
       pollToken: null
     }
   },
   methods: {
+    inspectStorageApi() {
+      try {
+        if (typeof $falcon === 'undefined' || !$falcon) {
+          this.storageInfo = 'Falcon Storage: $falcon 不可用'
+          return
+        }
+
+        var storage = $falcon.storage
+        if (typeof storage === 'undefined' || storage === null) {
+          this.storageInfo = 'Falcon Storage: $falcon.storage 不存在'
+          return
+        }
+
+        var apiType = typeof storage
+        var methods = []
+        if (apiType === 'object' || apiType === 'function') {
+          for (var key in storage) {
+            if (typeof storage[key] === 'function') {
+              methods.push(key)
+            }
+          }
+        }
+
+        this.storageInfo = 'Falcon Storage: ' + apiType +
+          (methods.length ? ' | 方法: ' + methods.join(', ') : ' | 未发现可枚举方法')
+      } catch (error) {
+        this.storageInfo = 'Falcon Storage 检测异常: ' +
+          (error && error.message ? error.message : String(error))
+      }
+    },
     showToast(msg) {
       this.toast = msg
       this.$page.setTimeout(() => { this.toast = '' }, 3000)
     },
     async onShow() {
+      this.inspectStorageApi()
       const stored = await this.TryStoredLogin()
       if (!stored) {
         this.GetQR()
@@ -137,6 +170,12 @@ export default {
   margin-top: 14px;
   font-size: 18px;
   color: #aaaaaa;
+}
+
+.storage-debug {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #80cbc4;
 }
 
 .qr-card {
