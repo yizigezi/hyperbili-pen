@@ -1,14 +1,21 @@
 <template>
   <div class="page">
-    <text class="title">扫码登录哔哩哔哩</text>
-    <div class="qr-card">
-      <FlQrcode v-if="show_qr" :text="qr_value" :size="180" />
-      <text v-else class="status">{{ status }}</text>
+    <div class="login-content">
+      <div class="login-info">
+        <text class="title">扫码登录哔哩哔哩</text>
+        <text class="hint">{{ hint }}</text>
+        <text v-if="!show_qr" class="status">{{ status }}</text>
+        <div class="retry" v-if="show_retry" @click="GetQR">
+          <text class="retry-text">刷新二维码</text>
+        </div>
+      </div>
+
+      <div class="qr-card">
+        <FlQrcode v-if="show_qr" :text="qr_value" :size="180" />
+        <text v-else class="qr-placeholder">二维码加载中</text>
+      </div>
     </div>
-    <text class="hint">{{ hint }}</text>
-    <div class="retry" v-if="show_retry" @click="GetQR">
-      <text class="retry-text">刷新二维码</text>
-    </div>
+
     <div class="toast" v-if="toast">
       <text class="toast-text">{{ toast }}</text>
     </div>
@@ -84,7 +91,6 @@ export default {
         } else {
           this.hint = result.message
           if (result.code === 86038) {
-            // 二维码过期
             this.$page.clearTimer(this.pollToken)
             this.show_retry = true
           }
@@ -98,43 +104,65 @@ export default {
 <style lang="less">
 @import '../../styles/hyper.less';
 
+.login-content {
+  flex: 1;
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+}
+
+.login-info {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding-right: 18px;
+}
+
 .title {
-  margin-top: 40px;
   font-size: 26px;
   font-weight: bold;
   color: #ffffff;
 }
 
+.hint {
+  margin-top: 18px;
+  font-size: 20px;
+  color: #ffffff;
+}
+
+.status {
+  margin-top: 14px;
+  font-size: 18px;
+  color: #aaaaaa;
+}
+
 .qr-card {
-  margin-top: 30px;
-  width: 210px;
-  height: 210px;
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
   background-color: #ffffff;
 }
 
-.status {
-  font-size: 20px;
+.qr-placeholder {
+  font-size: 16px;
   color: #585858;
 }
 
-.hint {
-  margin-top: 20px;
-  font-size: 20px;
-  color: #ffffff;
-}
-
 .retry {
-  margin-top: 25px;
-  padding: 12px 30px;
+  margin-top: 20px;
+  padding: 12px 24px;
   border-radius: 20px;
   background-color: #ff7da8;
 }
 
 .retry-text {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #ffffff;
 }
