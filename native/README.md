@@ -33,7 +33,7 @@ Do not use a random host OpenSSL build. Match the device ABI, libc (glibc vs mus
 - cs_store(path, password, data, data_len)
 - cs_load(path, password, &data, &data_len)
 - cs_delete(path)
-- cs_free(data)
+- cs_free(data, data_len)
 
 Passwords must be at least 8 bytes. The caller must clear its own password buffer. cs_load returns -3 for a wrong password or modified file.
 
