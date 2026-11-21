@@ -16,7 +16,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     char **owned_headers = NULL;
     hb_http_request req;
     uint64_t id = 0;
-    int rc;
+    int rc, method_owned = 0;
     (void)this_val;
     if (argc < 1 || JS_IsString(argv[0]) == 0)
         return JS_ThrowTypeError(ctx, "hyperHttp.submit(url, method?, headers?, body?, timeoutMs?)");
@@ -24,6 +24,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     if (!url) return JS_EXCEPTION;
     if (argc > 1 && JS_IsString(argv[1])) {
         method = JS_ToCString(ctx, argv[1]);
+        method_owned = 1;
         if (!method) { JS_FreeCString(ctx, url); return JS_EXCEPTION; }
     }
     if (argc > 2 && JS_IsArray(ctx, argv[2])) {
@@ -40,7 +41,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         owned_headers = (char**)calloc(header_count ? header_count : 1, sizeof(char*));
         if (!owned_headers) {
             JS_FreeCString(ctx, url);
-            if (method != (const char*)"GET") JS_FreeCString(ctx, method);
+            if (method_owned) JS_FreeCString(ctx, method);
             return JS_ThrowOutOfMemory(ctx);
         }
         for (i = 0; i < header_count; ++i) {
