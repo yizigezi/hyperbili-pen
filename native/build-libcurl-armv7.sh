@@ -49,7 +49,7 @@ if [ ! -f "$PREFIX/lib/libcurl.a" ]; then
   CC="$CC" AR="$AR" RANLIB="$RANLIB" CFLAGS="-O2 -fPIC" \
     ./configure --host=arm-linux-gnueabihf --build="$(./config.guess)" \
       --prefix="$PREFIX" --with-openssl="$PREFIX" \
-      --disable-shared --enable-static --without-zlib \
+      --disable-shared --enable-static --without-zlib --without-libpsl \
       --disable-ftp --disable-file --disable-ldap --disable-ldaps \
       --disable-dict --disable-telnet --disable-tftp --disable-pop3 \
       --disable-imap --disable-smtp --disable-gopher --disable-mqtt \
