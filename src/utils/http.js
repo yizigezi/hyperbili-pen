@@ -1,11 +1,11 @@
 /**
  * 网络适配层：统一不同运行环境的 HTTP 能力。
  *
- * 三级降级（纯前端，不依赖原生模块）：
- *   1) `$falcon.jsapi.http.request(opts, cb)` —— 笔上 Falcon 的 http jsapi
- *      （weatheronyddictpen 实证存在；响应形状未完全公开，故 rawResponse 原样保留）
- *   2) `import('http')` —— 若固件把它注册成 jsapi 模块
- *   3) `global.execShell('curl ...')` —— PenMusic 文档化的 shell 桥，curl -i 保头
+ * 请求优先级：
+ *   1) `import('hyperHttp')` —— 项目自带 libcurl 原生 JSAPI，worker 线程执行网络 I/O
+ *   2) `$falcon.jsapi.http.request(opts, cb)` —— 固件自带 HTTP JSAPI
+ *   3) `import('http')` —— 若固件把它注册成 JSAPI 模块
+ *   4) `global.execShell('curl ...')` —— 最后兜底；Set-Cookie 完整性取决于系统 curl 输出
  *
  * 对外：
  *   rawRequest({url, method, headers, body}) -> {status, headers, bodyText, rawResponse, source}
