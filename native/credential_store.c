@@ -117,7 +117,8 @@ int cs_load(const char *path, const char *password, unsigned char **out_data, si
               | O_NOFOLLOW
 #endif
     );
-    if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+    if (fd < 0) { rc = (errno == ENOENT) ? -4 : -2; goto done; }
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
         st.st_size < (off_t)CS_HEADER_LEN ||
         st.st_size > (off_t)(CS_HEADER_LEN + CS_MAX_DATA + EVP_MAX_BLOCK_LENGTH)) goto done;
     buf = malloc((size_t)st.st_size);
