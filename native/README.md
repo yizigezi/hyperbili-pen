@@ -20,7 +20,7 @@ Binary: magic (4 bytes), version (1 byte), salt (16 bytes), nonce (12 bytes), GC
 
 ## Build
 
-The target must provide OpenSSL 1.1-compatible headers and libcrypto. The device inspection found libcrypto.so.1.1 but no OpenSSL headers, so build against a matching ARMv7 hard-float sysroot/toolchain and deploy the shared library with a native bridge.
+The build workflow statically links the bundled OpenSSL 3.5.4 archive into the ARMv7 hard-float library, avoiding dependence on the device OpenSSL ABI.
 
 Example:
 
@@ -39,7 +39,18 @@ Passwords must be at least 8 bytes. The caller must clear its own password buffe
 
 ## Integration status
 
-This is a native library prototype only. The current MiniApp repository has no confirmed JS-to-native invocation contract, so the Vue login flow is intentionally not switched to it yet. Do not fall back to plaintext storage if the native provider is unavailable. Once the device-side bridge is confirmed, wire this API behind a CredentialManager adapter and add the vault unlock UI.
+The credential store is linked into the same `libs/libjsapi_hyperhttp.so` library as the native HTTP module. `custom_init_jsapis()` registers both `hyperHttp` and `hyperCredential` QuickJS C modules. The login flow imports `hyperCredential` through `src/utils/credential.js`; it does not use Falcon Storage or an in-memory/plaintext fallback.
+
+The JS API is asynchronous:
+
+- `submit("store", password, jsonText)`
+- `submit("load", password)`
+- `submit("delete", "")`
+- `poll(taskId)` returns null while pending, then `{ ok, error, data? }`
+
+PBKDF2 and AES-GCM execute on a dedicated native worker thread. QuickJS only copies arguments, submits work, and polls completion. The queue is bounded to four outstanding tasks. The worker is joined by the shared-library destructor. The vault is stored at `/userdisk/hyperbili-pen.credentials`.
+
+On every app launch the login page asks for the vault password. If no vault exists, the same password is used to encrypt the account after QR login. A wrong password or corrupt vault is reported explicitly; it is not treated as an empty account. If the native module is unavailable, login credential operations fail closed. This is not hardware-backed protection: a compromised/root device can inspect live process memory or replace the library.
 
 
 ## Native HTTP / libcurl (ARMv7)
