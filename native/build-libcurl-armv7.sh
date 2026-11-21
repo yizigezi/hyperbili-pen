@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/native/.build-libcurl"
 PREFIX="$WORK/target"
-OPENSSL_VERSION="1.1.1w"
+OPENSSL_VERSION="3.5.4"
 CURL_VERSION="8.12.1"
 TARGET="arm-linux-gnueabihf.2.23"
 TOOLCHAIN="arm-linux-gnueabihf-"
