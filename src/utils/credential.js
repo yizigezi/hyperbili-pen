@@ -37,7 +37,7 @@ export async function load(password) {
     return value ? JSON.parse(value) : null;
   } catch (error) {
     // Missing vault is a first-run state. Authentication failures remain explicit.
-    if (String(error && error.message).indexOf('(-2)') >= 0) return null;
+    if (String(error && error.message).indexOf('(-4)') >= 0) return null;
     throw error;
   }
 }
