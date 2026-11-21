@@ -10,9 +10,9 @@ TARGET="arm-linux-gnueabihf.2.23"
 TOOLCHAIN="arm-linux-gnueabihf-"
 
 if command -v zig >/dev/null 2>&1; then
-  ZIG=zig
+  ZIG_CMD=(zig)
 elif python3 -c "import ziglang" >/dev/null 2>&1; then
-  ZIG="python3 -m ziglang"
+  ZIG_CMD=(python3 -m ziglang)
 else
   echo "zig is required (install with: python3 -m pip install ziglang)" >&2
   exit 1
@@ -33,7 +33,7 @@ fetch_source() {
 fetch_source "openssl-$OPENSSL_VERSION" "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz"
 fetch_source "curl-$CURL_VERSION" "https://curl.se/download/curl-$CURL_VERSION.tar.xz"
 
-CC="$ZIG cc -target $TARGET"
+CC="${ZIG_CMD[*]} cc -target $TARGET"
 AR="${TOOLCHAIN}ar"
 RANLIB="${TOOLCHAIN}ranlib"
 
@@ -59,7 +59,7 @@ if [ ! -f "$PREFIX/lib/libcurl.a" ]; then
 fi
 
 cd "$ROOT"
-"$ZIG" cc -target "$TARGET" -O2 -fPIC -fvisibility=hidden -Wall -Wextra \
+"${ZIG_CMD[@]}" cc -target "$TARGET" -O2 -fPIC -fvisibility=hidden -Wall -Wextra \
   -shared -Wl,-soname,libjsapi_hyperhttp.so -Wl,--exclude-libs,ALL \
   -I"$ROOT/native/quickjs" -I"$ROOT/native" \
   "$ROOT/native/http_plugin.c" "$ROOT/native/http_client.c" \
