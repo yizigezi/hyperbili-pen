@@ -179,10 +179,86 @@ async function requestViaCurl({ url, method, headers, body }) {
   };
 }
 
+
+// ---- Native libcurl backend (registered by libjsapi_hyperhttp.so) ----
+
+function parseNativeHeaders(raw) {
+  const blocks = String(raw || '').split(/\r?\n\r?\n/);
+  let status = 0;
+  let selected = [];
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/);
+    if (/^HTTP\//.test(lines[0] || '')) {
+      const match = lines[0].match(/HTTP\/[^ ]+\s+(\d{3})/);
+      status = match ? parseInt(match[1], 10) : status;
+      selected = lines.slice(1);
+    }
+  }
+  const headers = {};
+  for (const line of selected) {
+    const index = line.indexOf(':');
+    if (index <= 0) continue;
+    const key = line.slice(0, index).trim().toLowerCase();
+    const value = line.slice(index + 1).trim();
+    if (key === 'set-cookie') {
+      if (!headers[key]) headers[key] = [];
+      headers[key].push(value);
+    } else if (headers[key] !== undefined) {
+      headers[key] = Array.isArray(headers[key]) ? headers[key].concat([value]) : [headers[key], value];
+    } else {
+      headers[key] = value;
+    }
+  }
+  return { status, headers };
+}
+
+async function requestViaNativeCurl({ url, method, headers, body }) {
+  const module = await import('hyperHttp');
+  const api = module.default || module;
+  if (!api || typeof api.submit !== 'function' || typeof api.poll !== 'function') {
+    throw new Error('hyperHttp native JSAPI is unavailable');
+  }
+  const headerLines = Object.keys(headers || {}).map((key) => key + ': ' + headers[key]);
+  const id = api.submit(url, method || 'GET', headerLines, body == null ? null : String(body), 15000);
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const poll = () => {
+      let result;
+      try {
+        result = api.poll(id);
+      } catch (error) {
+        reject(error);
+        return;
+      }
+      if (result === null) {
+        if (Date.now() - startedAt > 35000) {
+          reject(new Error('native HTTP request timed out while waiting for completion'));
+          return;
+        }
+        setTimeout(poll, 20);
+        return;
+      }
+      if (result.error) {
+        reject(new Error(result.error));
+        return;
+      }
+      const parsed = parseNativeHeaders(result.headersRaw);
+      resolve({
+        status: result.status || parsed.status,
+        headers: parsed.headers,
+        bodyText: result.bodyText || '',
+        rawResponse: result,
+        source: 'native-libcurl'
+      });
+    };
+    poll();
+  });
+}
+
 // ---- 对外接口 ----
 
 export async function rawRequest({ url, method, headers, body }) {
-  const tiers = [requestViaFalconHttp, requestViaHttpModule, requestViaCurl];
+  const tiers = [requestViaNativeCurl, requestViaFalconHttp, requestViaHttpModule, requestViaCurl];
   let lastErr = null;
   for (const tier of tiers) {
     try {
