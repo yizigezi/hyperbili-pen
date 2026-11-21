@@ -31,7 +31,7 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_ready = PTHREAD_COND_INITIALIZER;
 static pthread_t g_workers[WORKER_COUNT];
 static hb_job *g_jobs, *g_queue_head, *g_queue_tail;
-static size_t g_queue_size;
+static size_t g_queue_size, g_outstanding;
 static uint64_t g_next_id = 1;
 static int g_initialized, g_stopping;
 
@@ -121,6 +121,8 @@ static void perform_job(hb_job *j) {
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_body);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, j->timeout_ms);
@@ -220,14 +222,14 @@ int hb_http_submit(const hb_http_request *r, uint64_t *out_id) {
     }
 
     pthread_mutex_lock(&g_lock);
-    if (g_stopping || g_queue_size >= QUEUE_LIMIT) {
+    if (g_stopping || g_outstanding >= QUEUE_LIMIT) {
         pthread_mutex_unlock(&g_lock); free_job(j); return -4;
     }
     j->id = g_next_id++;
     if (!g_next_id) g_next_id = 1;
     j->jobs_next = g_jobs; g_jobs = j;
     if (g_queue_tail) g_queue_tail->queue_next = j; else g_queue_head = j;
-    g_queue_tail = j; ++g_queue_size;
+    g_queue_tail = j; ++g_queue_size; ++g_outstanding;
     *out_id = j->id;
     pthread_cond_signal(&g_ready);
     pthread_mutex_unlock(&g_lock);
@@ -262,7 +264,7 @@ void hb_http_shutdown(void) {
     for (i = 0; i < WORKER_COUNT; ++i) pthread_join(g_workers[i], NULL);
     pthread_mutex_lock(&g_lock);
     j = g_jobs; g_jobs = NULL; g_queue_head = g_queue_tail = NULL; g_queue_size = 0;
-    g_initialized = 0; g_stopping = 0;
+    g_initialized = 0; g_stopping = 0; g_outstanding = 0;
     pthread_mutex_unlock(&g_lock);
     while (j) { next = j->jobs_next; free_job(j); j = next; }
     curl_global_cleanup();
