@@ -186,12 +186,19 @@ function parseNativeHeaders(raw) {
   const blocks = String(raw || '').split(/\r?\n\r?\n/);
   let status = 0;
   let selected = [];
+  const allSetCookies = [];
   for (const block of blocks) {
     const lines = block.split(/\r?\n/);
-    if (/^HTTP\//.test(lines[0] || '')) {
-      const match = lines[0].match(/HTTP\/[^ ]+\s+(\d{3})/);
-      status = match ? parseInt(match[1], 10) : status;
-      selected = lines.slice(1);
+    if (!/^HTTP\//.test(lines[0] || '')) continue;
+    const match = lines[0].match(/HTTP\/[^ ]+\s+(\d{3})/);
+    status = match ? parseInt(match[1], 10) : status;
+    selected = lines.slice(1);
+    // Cookies set on an intermediate redirect response are valid too.
+    for (const line of selected) {
+      const index = line.indexOf(':');
+      if (index > 0 && line.slice(0, index).trim().toLowerCase() === 'set-cookie') {
+        allSetCookies.push(line.slice(index + 1).trim());
+      }
     }
   }
   const headers = {};
@@ -199,16 +206,15 @@ function parseNativeHeaders(raw) {
     const index = line.indexOf(':');
     if (index <= 0) continue;
     const key = line.slice(0, index).trim().toLowerCase();
+    if (key === 'set-cookie') continue;
     const value = line.slice(index + 1).trim();
-    if (key === 'set-cookie') {
-      if (!headers[key]) headers[key] = [];
-      headers[key].push(value);
-    } else if (headers[key] !== undefined) {
+    if (headers[key] !== undefined) {
       headers[key] = Array.isArray(headers[key]) ? headers[key].concat([value]) : [headers[key], value];
     } else {
       headers[key] = value;
     }
   }
+  if (allSetCookies.length) headers['set-cookie'] = allSetCookies;
   return { status, headers };
 }
 
