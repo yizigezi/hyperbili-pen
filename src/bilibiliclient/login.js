@@ -130,7 +130,7 @@ export const BilibiliClientLoginMethods = {
 
   // 辅助函数，用于解析cookie字符串
   parseCookie(cookie, name) {
-    const match = cookie.match(new RegExp(`${name}=([^;]+)`));
+    const match = cookie.match(new RegExp(`(?:^|[;,]\\s*)${name}=([^;]+)`));
     return match ? match[1] : null;
   },
 
