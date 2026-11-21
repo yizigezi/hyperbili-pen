@@ -199,7 +199,7 @@ int hb_http_submit(const hb_http_request *r, uint64_t *out_id) {
     if (!r || !out_id || !r->url || !*r->url || strlen(r->url) > URL_LIMIT ||
         (r->header_count && !r->headers) || r->header_count > HB_HTTP_MAX_HEADERS ||
         (r->body_len && !r->body) || r->body_len > HB_HTTP_MAX_BODY) return -1;
-    if (!g_initialized && hb_http_init() != 0) return -2;
+    if (hb_http_init() != 0) return -2;
     j = (hb_job *)calloc(1, sizeof(*j));
     if (!j) return -3;
     j->url = strdup(r->url);
