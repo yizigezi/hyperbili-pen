@@ -6,7 +6,7 @@ PREFIX="$WORK/target"
 OPENSSL_VERSION="1.1.1w"
 CURL_VERSION="8.12.1"
 TOOLCHAIN="arm-linux-gnueabihf-"
-CC="\${TOOLCHAIN}gcc"
+CC="${TOOLCHAIN}gcc"
 mkdir -p "$WORK" "$PREFIX"
 cd "$WORK"
 fetch_source() {
@@ -29,7 +29,7 @@ if [ ! -f "$PREFIX/lib/libcurl.a" ]; then
   ./configure \
     --host=arm-linux-gnueabihf \
     --build="$(./config.guess)" \
-    CC="$CC" AR="\${TOOLCHAIN}ar" RANLIB="\${TOOLCHAIN}ranlib" \
+    CC="$CC" AR="${TOOLCHAIN}ar" RANLIB="${TOOLCHAIN}ranlib" \
     CFLAGS="-O2 -fPIC" \
     --prefix="$PREFIX" \
     --with-openssl="$PREFIX" \
