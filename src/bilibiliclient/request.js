@@ -112,7 +112,8 @@ export class BiliClient {
 
   // 发送POST请求
   async postRequest(url, data, content_type, custom_headers = null) {
-    logger.log(`postRequest: ${url}, body: ${data}, contentType: ${content_type}`);
+    // Never log request bodies: private messages and CSRF tokens are carried here.
+    logger.log(`postRequest: ${url}, contentType: ${content_type}`);
     let headers = { ...this.getHeaders(), 'Content-Type': content_type };
     if (custom_headers) {
       headers = custom_headers;
