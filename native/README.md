@@ -48,7 +48,7 @@ This is a native library prototype only. The current MiniApp repository has no c
 bash native/build-libcurl-armv7.sh
 ```
 
-The script cross-builds OpenSSL 1.1.1w and libcurl 8.12.1 as static PIC archives, then links them into `libs/libjsapi_hyperhttp.so`. It targets ARMv7 hard-float with glibc 2.23 and statically includes TLS dependencies, so it does not depend on the pen's OpenSSL 1.1 ABI or headers. HTTPS peer and hostname verification are explicitly enabled.
+The script cross-builds OpenSSL 3.5.4 and libcurl 8.12.1 as static PIC archives, then links them into `libs/libjsapi_hyperhttp.so`. It targets ARMv7 hard-float with glibc 2.23 and statically includes TLS dependencies, so it does not depend on the pen's OpenSSL 1.1 ABI or headers. HTTPS peer and hostname verification are explicitly enabled.
 
 The Falcon module is registered as `hyperHttp` by `custom_init_jsapis()` in `http_plugin.c` (QuickJS C-module ABI shared with `readex-nt`). JS imports it with `import('hyperHttp')`. The adapter in `src/utils/http.js` submits work, then polls every 20 ms from the JS event loop; it never waits synchronously for network I/O. The app build downloads this native library into `libs/` before packaging, so the `.amr` contains `libs/libjsapi_hyperhttp.so`.
 
