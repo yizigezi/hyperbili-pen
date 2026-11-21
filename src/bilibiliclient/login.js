@@ -11,8 +11,6 @@
 import credential from '../utils/credential.js';
 import logger from '../utils/logger.js';
 
-const ACCOUNT_KEY = 'bilibili_account';
-
 export const BilibiliClientLoginMethods = {
   // 更新账号信息（返回是否登录有效）
   async updateAccountInfo() {
