@@ -1,5 +1,7 @@
 #include "quickjs.h"
 #include "credential_store.h"
+#include "credential_plugin.h"
+extern void registerCModuleLoader(const char*, JSModuleDef* (*)(JSContext*, const char*));
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -36,7 +38,7 @@ static void *worker_main(void *unused){
     }else if(!strcmp(t->op,"load")){
       unsigned char*out=NULL;size_t len=0;int rc=cs_load(VAULT_PATH,t->password,&out,&len);
       t->ok=(rc==0);
-      if(rc)snprintf(t->error,sizeof(t->error),rc==-3?"vault password incorrect or data corrupted":"credential load failed (%d)",rc);
+      if(rc)snprintf(t->error,sizeof(t->error),rc==-3?"vault password incorrect or data corrupted (-3)":"credential load failed (%d)",rc);
       else{t->result=malloc(len+1);if(t->result){memcpy(t->result,out,len);t->result[len]=0;}else{t->ok=0;snprintf(t->error,sizeof(t->error),"out of memory");}cs_free(out,len);}
     }else if(!strcmp(t->op,"delete")){
       int rc=cs_delete(VAULT_PATH);t->ok=(rc==0);if(rc)snprintf(t->error,sizeof(t->error),"credential delete failed (%d)",rc);
@@ -88,3 +90,18 @@ static JSModuleDef*module_load(JSContext*ctx,const char*name){
   if(JS_AddModuleExport(ctx,m,"default")<0)return NULL;return m;
 }
 void register_hyper_credential_jsapi(void){registerCModuleLoader("hyperCredential",module_load);}
+
+__attribute__((destructor)) static void credential_worker_shutdown(void) {
+  task *t, *next;
+  pthread_mutex_lock(&lock);
+  if (!started) { pthread_mutex_unlock(&lock); return; }
+  stopping = 1;
+  pthread_cond_broadcast(&ready);
+  pthread_mutex_unlock(&lock);
+  pthread_join(worker, NULL);
+  pthread_mutex_lock(&lock);
+  t = all_tasks; all_tasks = NULL; queue_head = queue_tail = NULL;
+  outstanding = 0; started = 0; stopping = 0;
+  pthread_mutex_unlock(&lock);
+  while (t) { next = t->all_next; free_task(t); t = next; }
+}
