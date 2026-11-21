@@ -80,10 +80,16 @@ export const BilibiliClientLoginMethods = {
             null;
           if (setCookie) {
             this.extractCookiesFromResponse(setCookie);
-            await this.storeAccountData();
-            logger.log('使用二维码登录并存储账号数据成功');
-            await this.updateAccountInfo();
+            if (!this.sessData || !this.biliJct || !this.dedeUserID || !this.sid) {
+              return { success: false, message: '登录失败：Set-Cookie 缺少必要字段', code: 0 };
+            }
+            const accountValid = await this.updateAccountInfo();
+            if (!accountValid) {
+              return { success: false, message: '登录失败：账号状态验证未通过', code: 0 };
+            }
             await this.updateBUVID();
+            await this.storeAccountData();
+            logger.log('二维码登录并验证账号状态成功');
             return { success: true, message: '登录成功', code: 0 };
           }
           return { success: false, message: '登录失败：响应中没有 Set-Cookie', code: 0 };
