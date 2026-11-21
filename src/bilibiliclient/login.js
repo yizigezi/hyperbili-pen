@@ -8,7 +8,7 @@
  *     此处取 `response.headers['set-cookie']`
  *   - 原版 session 失效跳错误页（router），此处返回对应结果由页面处理
  */
-import storage from '../utils/storage.js';
+import credential from '../utils/credential.js';
 import logger from '../utils/logger.js';
 
 const ACCOUNT_KEY = 'bilibili_account';
@@ -51,8 +51,8 @@ export const BilibiliClientLoginMethods = {
   },
 
   // 登录：优先本地存储的账号数据；send_req=true 时轮询扫码结果
-  async login(send_req = false) {
-    const accountData = await this.getStoredAccountData();
+  async login(send_req = false, vaultPassword = null) {
+    const accountData = send_req ? null : await this.getStoredAccountData(vaultPassword);
     if (accountData) {
       this.sessData = accountData.sessData;
       this.biliJct = accountData.biliJct;
@@ -88,7 +88,7 @@ export const BilibiliClientLoginMethods = {
               return { success: false, message: '登录失败：账号状态验证未通过', code: 0 };
             }
             await this.updateBUVID();
-            await this.storeAccountData();
+            await this.storeAccountData(vaultPassword);
             logger.log('二维码登录并验证账号状态成功');
             return { success: true, message: '登录成功', code: 0 };
           }
@@ -115,7 +115,7 @@ export const BilibiliClientLoginMethods = {
     this.dedeUserID = null;
     this.sid = null;
     this.accountInfo = null;
-    await storage.del(ACCOUNT_KEY);
+    await credential.remove();
   },
 
   // 从响应头中提取Cookies
@@ -141,18 +141,13 @@ export const BilibiliClientLoginMethods = {
   },
 
   // 获取本地存储的账号数据
-  async getStoredAccountData() {
-    try {
-      const data = await storage.get(ACCOUNT_KEY);
-      return data ? JSON.parse(data) : null;
-    } catch (err) {
-      logger.log('获取存储的账号数据失败：', err);
-      return null;
-    }
+  async getStoredAccountData(password) {
+    if (!password) return null;
+    return credential.load(password);
   },
 
   // 保存账号数据到本地存储
-  async storeAccountData() {
+  async storeAccountData(password) {
     if (this.sessData && this.biliJct && this.dedeUserID && this.sid) {
       const accountData = {
         sessData: this.sessData,
@@ -160,8 +155,9 @@ export const BilibiliClientLoginMethods = {
         dedeUserID: this.dedeUserID,
         sid: this.sid
       };
-      await storage.set(ACCOUNT_KEY, JSON.stringify(accountData));
-      logger.log('账号数据存储成功');
+      if (!password) throw new Error('请先设置凭证库密码');
+      await credential.store(password, JSON.stringify(accountData));
+      logger.log('加密凭证保存成功');
     }
   }
 };
