@@ -66,6 +66,7 @@ export default {
       try {
         const result = await biliclient.login(false, this.vaultPassword)
         if (result && result.success) {
+          this.vaultPassword = ''
           $falcon.navTo('dmlist')
           return
         }
@@ -97,6 +98,7 @@ export default {
         const result = await biliclient.login(true, this.vaultPassword)
         if (result.success) {
           this.$page.clearTimer(this.pollToken)
+          this.vaultPassword = ''
           $falcon.navTo('dmlist')
         } else {
           this.hint = result.message
