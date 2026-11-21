@@ -2,11 +2,8 @@
  * 登录相关方法（挂到 BiliClient.prototype 的 mixin）。
  * 移植自 HyperBilibili (GPL-3.0) src/bilibiliclient/account/login.ts。
  *
- * 差异：
- *   - storage jsapi 回调式 → utils/storage.js Promise 适配层
- *   - 原版 Set-Cookie 取 `response.headers['Set-Cookie']`，适配层统一小写键，
- *     此处取 `response.headers['set-cookie']`
- *   - 原版 session 失效跳错误页（router），此处返回对应结果由页面处理
+ * 账号 Cookie 只通过 hyperCredential 原生加密凭证库读写；不使用 Falcon Storage。
+ * 原版 session 失效跳错误页（router），此处返回对应结果由页面处理。
  */
 import credential from '../utils/credential.js';
 import logger from '../utils/logger.js';
