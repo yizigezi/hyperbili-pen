@@ -5,7 +5,8 @@
         <text class="title">扫码登录哔哩哔哩</text>
         <text class="hint">{{ hint }}</text>
         <text v-if="!show_qr" class="status">{{ status }}</text>
-        <text class="storage-debug">{{ storageInfo }}</text>
+        <input class="vault-input" type="password" v-model="vaultPassword" placeholder="设置或输入凭证库密码（至少 8 位）" />
+        <div class="retry vault-action" @click="UnlockVault"><text class="retry-text">解锁并继续</text></div>
         <div class="retry" v-if="show_retry" @click="GetQR">
           <text class="retry-text">刷新二维码</text>
         </div>
@@ -39,65 +40,40 @@ export default {
       show_retry: false,
       status: '正在获取二维码...',
       hint: '打开手机哔哩哔哩扫码登录',
-      storageInfo: 'Falcon Storage: 检测中...',
+      vaultPassword: '',
       toast: '',
       pollToken: null
     }
   },
   methods: {
-    inspectStorageApi() {
-      try {
-        if (typeof $falcon === 'undefined' || !$falcon) {
-          this.storageInfo = 'Falcon Storage: $falcon 不可用'
-          return
-        }
-
-        var storage = $falcon.storage
-        if (typeof storage === 'undefined' || storage === null) {
-          this.storageInfo = 'Falcon Storage: $falcon.storage 不存在'
-          return
-        }
-
-        var apiType = typeof storage
-        var methods = []
-        if (apiType === 'object' || apiType === 'function') {
-          for (var key in storage) {
-            if (typeof storage[key] === 'function') {
-              methods.push(key)
-            }
-          }
-        }
-
-        this.storageInfo = 'Falcon Storage: ' + apiType +
-          (methods.length ? ' | 方法: ' + methods.join(', ') : ' | 未发现可枚举方法')
-      } catch (error) {
-        this.storageInfo = 'Falcon Storage 检测异常: ' +
-          (error && error.message ? error.message : String(error))
-      }
-    },
     showToast(msg) {
       this.toast = msg
       this.$page.setTimeout(() => { this.toast = '' }, 3000)
     },
     async onShow() {
-      this.inspectStorageApi()
-      const stored = await this.TryStoredLogin()
-      if (!stored) {
-        this.GetQR()
-      }
+      this.status = '请输入凭证库密码后继续';
     },
     onDestroy() {
       this.$page.clearTimer(this.pollToken)
     },
-    async TryStoredLogin() {
+    async UnlockVault() {
+      if (!this.vaultPassword || this.vaultPassword.length < 8) {
+        this.showToast('密码至少需要 8 位')
+        return
+      }
+      this.status = '正在解锁凭证库...'
       try {
-        const result = await biliclient.login(false)
+        const result = await biliclient.login(false, this.vaultPassword)
         if (result && result.success) {
           $falcon.navTo('dmlist')
-          return true
+          return
         }
-      } catch (e) {}
-      return false
+        this.status = '未发现已保存账号，请扫码登录'
+        this.GetQR()
+      } catch (error) {
+        this.status = '凭证库解锁失败'
+        this.showToast(error && error.message ? error.message : String(error))
+      }
     },
     async GetQR() {
       this.show_retry = false
@@ -117,7 +93,7 @@ export default {
     },
     async PollQR() {
       try {
-        const result = await biliclient.login(true)
+        const result = await biliclient.login(true, this.vaultPassword)
         if (result.success) {
           this.$page.clearTimer(this.pollToken)
           $falcon.navTo('dmlist')
@@ -172,11 +148,16 @@ export default {
   color: #aaaaaa;
 }
 
-.storage-debug {
-  margin-top: 12px;
-  font-size: 14px;
-  color: #80cbc4;
+.vault-input {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  font-size: 16px;
+  color: #222222;
+  background-color: #ffffff;
+  border-radius: 8px;
 }
+.vault-action { margin-top: 12px; }
 
 .qr-card {
   width: 200px;
