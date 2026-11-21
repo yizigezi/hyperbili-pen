@@ -55,7 +55,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
             while (i > 0) JS_FreeCString(ctx, owned_headers[--i]);
             free(owned_headers);
             JS_FreeCString(ctx, url);
-            if (method != (const char*)"GET") JS_FreeCString(ctx, method);
+            if (method_owned) JS_FreeCString(ctx, method);
             return JS_EXCEPTION;
         }
     }
@@ -64,7 +64,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         if (!body) {
             for (i = 0; i < header_count; ++i) JS_FreeCString(ctx, owned_headers[i]);
             free(owned_headers); JS_FreeCString(ctx, url);
-            if (method != (const char*)"GET") JS_FreeCString(ctx, method);
+            if (method_owned) JS_FreeCString(ctx, method);
             return JS_EXCEPTION;
         }
     }
@@ -81,7 +81,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     for (i = 0; i < header_count; ++i) JS_FreeCString(ctx, owned_headers[i]);
     free(owned_headers);
     JS_FreeCString(ctx, url);
-    if (method != (const char*)"GET") JS_FreeCString(ctx, method);
+    if (method_owned) JS_FreeCString(ctx, method);
     if (rc != 0) return JS_ThrowInternalError(ctx, "native HTTP submit failed (%d)", rc);
     return JS_NewInt64(ctx, (int64_t)id);
 }
