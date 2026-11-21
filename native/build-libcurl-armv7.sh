@@ -63,6 +63,7 @@ cd "$ROOT"
   -shared -Wl,-soname,libjsapi_hyperhttp.so \
   -I"$ROOT/native/quickjs" -I"$ROOT/native" -I"$PREFIX/include" \
   "$ROOT/native/http_plugin.c" "$ROOT/native/http_client.c" \
+  "$ROOT/native/credential_plugin.c" "$ROOT/native/credential_store.c" \
   "$PREFIX/lib/libcurl.a" -Wl,-Bstatic "$PREFIX/lib/libssl.a" "$PREFIX/lib/libcrypto.a" \
   -Wl,-Bdynamic -ldl -lpthread -lm \
   -o "$ROOT/native/dist/libjsapi_hyperhttp.so"
