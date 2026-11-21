@@ -4,3 +4,6 @@ dist/
 *.amr
 .DS_Store
 .temp/
+libs/*.so
+native/.build-libcurl/
+native/dist/
