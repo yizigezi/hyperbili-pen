@@ -7,3 +7,5 @@ dist/
 libs/*.so
 native/.build-libcurl/
 native/dist/
+
+native/*.so
