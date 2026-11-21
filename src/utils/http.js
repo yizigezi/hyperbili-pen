@@ -213,10 +213,18 @@ function parseNativeHeaders(raw) {
 }
 
 async function requestViaNativeCurl({ url, method, headers, body }) {
-  const module = await import('hyperHttp');
+  let module;
+  try {
+    module = await import('hyperHttp');
+  } catch (error) {
+    error.code = 'NATIVE_HTTP_UNAVAILABLE';
+    throw error;
+  }
   const api = module.default || module;
   if (!api || typeof api.submit !== 'function' || typeof api.poll !== 'function') {
-    throw new Error('hyperHttp native JSAPI is unavailable');
+    const error = new Error('hyperHttp native JSAPI is unavailable');
+    error.code = 'NATIVE_HTTP_UNAVAILABLE';
+    throw error;
   }
   const headerLines = Object.keys(headers || {}).map((key) => key + ': ' + headers[key]);
   const id = api.submit(url, method || 'GET', headerLines, body == null ? null : String(body), 15000);
@@ -267,6 +275,9 @@ export async function rawRequest({ url, method, headers, body }) {
         res.headers === null ? '(headers 不可见)' : '');
       return res;
     } catch (err) {
+      if (tier === requestViaNativeCurl && err.code !== 'NATIVE_HTTP_UNAVAILABLE') {
+        throw err;
+      }
       lastErr = err;
     }
   }
