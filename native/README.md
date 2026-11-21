@@ -20,7 +20,7 @@ Binary: magic (4 bytes), version (1 byte), salt (16 bytes), nonce (12 bytes), GC
 
 ## Build
 
-The target must provide OpenSSL 1.1-compatible headers and libcrypto. The device inspection found libcrypto.so.1.1 but no OpenSSL headers, so build against a matching ARMv7 hard-float sysroot/toolchain and deploy the shared library with a native bridge.
+The build workflow statically links the bundled OpenSSL 3.5.4 archive into the ARMv7 hard-float library, avoiding dependence on the device OpenSSL ABI.
 
 Example:
 
@@ -39,4 +39,37 @@ Passwords must be at least 8 bytes. The caller must clear its own password buffe
 
 ## Integration status
 
-This is a native library prototype only. The current MiniApp repository has no confirmed JS-to-native invocation contract, so the Vue login flow is intentionally not switched to it yet. Do not fall back to plaintext storage if the native provider is unavailable. Once the device-side bridge is confirmed, wire this API behind a CredentialManager adapter and add the vault unlock UI.
+The credential store is linked into the same `libs/libjsapi_hyperhttp.so` library as the native HTTP module. `custom_init_jsapis()` registers both `hyperHttp` and `hyperCredential` QuickJS C modules. The login flow imports `hyperCredential` through `src/utils/credential.js`; it does not use Falcon Storage or an in-memory/plaintext fallback.
+
+The JS API is asynchronous:
+
+- `submit("store", password, jsonText)`
+- `submit("load", password)`
+- `submit("delete", "")`
+- `poll(taskId)` returns null while pending, then `{ ok, error, data? }`
+
+PBKDF2 and AES-GCM execute on a dedicated native worker thread. QuickJS only copies arguments, submits work, and polls completion. The queue is bounded to four outstanding tasks. The worker is joined by the shared-library destructor. The vault is stored at `/userdisk/hyperbili-pen.credentials`.
+
+On every app launch the login page asks for the vault password. If no vault exists, the same password is used to encrypt the account after QR login. A wrong password or corrupt vault is reported explicitly; it is not treated as an empty account. If the native module is unavailable, login credential operations fail closed. This is not hardware-backed protection: a compromised/root device can inspect live process memory or replace the library.
+
+
+## Native HTTP / libcurl (ARMv7)
+
+```sh
+bash native/build-libcurl-armv7.sh
+```
+
+The script cross-builds OpenSSL 3.5.4 and libcurl 8.12.1 as static PIC archives, then links them into `libs/libjsapi_hyperhttp.so`. It targets ARMv7 hard-float with glibc 2.23 and statically includes TLS dependencies, so it does not depend on the pen's OpenSSL 1.1 ABI or headers. HTTPS peer and hostname verification are explicitly enabled.
+
+The Falcon module is registered as `hyperHttp` by `custom_init_jsapis()` in `http_plugin.c` (QuickJS C-module ABI shared with `readex-nt`). JS imports it with `import('hyperHttp')`. The adapter in `src/utils/http.js` submits work, then polls every 20 ms from the JS event loop; it never waits synchronously for network I/O. The app build downloads this native library into `libs/` before packaging, so the `.amr` contains `libs/libjsapi_hyperhttp.so`.
+
+The exported C API is in `http_client.h`:
+
+- `hb_http_init()` / `hb_http_shutdown()`: start and drain a bounded worker pool (2 workers).
+- `hb_http_submit()`: copy request URL, headers, and body into native-owned memory and enqueue it. All outstanding requests (queued, active, or completed-but-not-polled) are bounded to 8; overload returns an error.
+- `hb_http_poll()`: non-blocking completion poll. Only the caller/JS owner thread should convert results into JS values and settle Promises.
+- `hb_http_response_free()`: release response memory.
+
+Workers perform all libcurl work. They never receive or access QuickJS runtime/context/value pointers. The response's raw header buffer preserves each header line separately, including repeated `Set-Cookie` lines; it deliberately does not join them with commas (a comma can occur inside cookie attributes such as `Expires`). Redirect response header blocks are retained too; the JS adapter selects the final HTTP header block while keeping each Set-Cookie line as a separate array item.
+
+**Runtime lifecycle:** `http_plugin.c` exports `custom_init_jsapis()` and registers the `hyperHttp` QuickJS module. `src/utils/http.js` imports it dynamically, submits requests, and polls from the JS event loop; it never waits synchronously for network I/O. The shared-library destructor calls `hb_http_shutdown()` and joins all workers before unload. Workers never touch QuickJS. `src/bilibiliclient/login.js` now handles `set-cookie` as a list and no longer splits cookie strings on commas.
