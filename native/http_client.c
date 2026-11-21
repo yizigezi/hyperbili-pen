@@ -178,6 +178,7 @@ int hb_http_init(void) {
     int i;
     pthread_mutex_lock(&g_lock);
     if (g_initialized) { pthread_mutex_unlock(&g_lock); return 0; }
+    if (g_stopping) { pthread_mutex_unlock(&g_lock); return -1; }
     g_stopping = 0;
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
         pthread_mutex_unlock(&g_lock); return -1;
@@ -260,15 +261,18 @@ void hb_http_shutdown(void) {
     hb_job *j, *next;
     int i;
     pthread_mutex_lock(&g_lock);
-    if (!g_initialized) { pthread_mutex_unlock(&g_lock); return; }
+    if (!g_initialized || g_stopping) { pthread_mutex_unlock(&g_lock); return; }
     g_stopping = 1;
     pthread_cond_broadcast(&g_ready);
     pthread_mutex_unlock(&g_lock);
     for (i = 0; i < WORKER_COUNT; ++i) pthread_join(g_workers[i], NULL);
     pthread_mutex_lock(&g_lock);
     j = g_jobs; g_jobs = NULL; g_queue_head = g_queue_tail = NULL; g_queue_size = 0;
-    g_initialized = 0; g_stopping = 0; g_outstanding = 0;
+    g_initialized = 0; g_outstanding = 0;
     pthread_mutex_unlock(&g_lock);
     while (j) { next = j->jobs_next; free_job(j); j = next; }
     curl_global_cleanup();
+    pthread_mutex_lock(&g_lock);
+    g_stopping = 0;
+    pthread_mutex_unlock(&g_lock);
 }
