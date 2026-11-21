@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   app-build:
+    needs: native-http
     name: Falcon app package
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +46,12 @@ jobs:
       - name: Check project
         run: npm run check
 
+      - name: Download ARMv7 native HTTP JSAPI
+        uses: actions/download-artifact@v4
+        with:
+          name: hyperbili-native-http-armv7
+          path: libs
+
       - name: Build production AMR
         run: npm run build:prod
 
@@ -66,18 +73,19 @@ jobs:
       - name: Install ARM cross toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf make perl python3 curl file
+          sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf make perl python3 python3-pip curl file
+          python3 -m pip install --break-system-packages ziglang
 
       - name: Build bundled libcurl and async HTTP client
         run: |
           bash native/build-libcurl-armv7.sh
-          file native/libhyperhttp.so
-          readelf -h native/libhyperhttp.so | grep -E 'Class:|Machine:'
+          file native/dist/libjsapi_hyperhttp.so
+          readelf -h native/dist/libjsapi_hyperhttp.so | grep -E 'Class:|Machine:'
 
       - name: Upload native HTTP library
         uses: actions/upload-artifact@v4
         with:
           name: hyperbili-native-http-armv7
-          path: native/libhyperhttp.so
+          path: libs/libjsapi_hyperhttp.so
           if-no-files-found: error
           retention-days: 14
