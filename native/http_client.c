@@ -22,7 +22,8 @@ typedef struct hb_job {
     long timeout_ms;
     hb_http_response *response;
     int done;
-    struct hb_job *next;
+    struct hb_job *jobs_next;
+    struct hb_job *queue_next;
     struct curl_slist *curl_headers;
 } hb_job;
 
@@ -154,9 +155,9 @@ static void *worker_main(void *unused) {
         while (!g_queue_head && !g_stopping) pthread_cond_wait(&g_ready, &g_lock);
         if (!g_queue_head && g_stopping) { pthread_mutex_unlock(&g_lock); break; }
         j = g_queue_head;
-        g_queue_head = j->next;
+        g_queue_head = j->queue_next;
         if (!g_queue_head) g_queue_tail = NULL;
-        j->next = NULL;
+        j->queue_next = NULL;
         if (g_queue_size) --g_queue_size;
         pthread_mutex_unlock(&g_lock);
 
@@ -224,8 +225,8 @@ int hb_http_submit(const hb_http_request *r, uint64_t *out_id) {
     }
     j->id = g_next_id++;
     if (!g_next_id) g_next_id = 1;
-    j->next = g_jobs; g_jobs = j;
-    if (g_queue_tail) g_queue_tail->next = j; else g_queue_head = j;
+    j->jobs_next = g_jobs; g_jobs = j;
+    if (g_queue_tail) g_queue_tail->queue_next = j; else g_queue_head = j;
     g_queue_tail = j; ++g_queue_size;
     *out_id = j->id;
     pthread_cond_signal(&g_ready);
@@ -238,11 +239,11 @@ int hb_http_poll(uint64_t id, hb_http_response **out) {
     if (!out) return -1;
     *out = NULL;
     pthread_mutex_lock(&g_lock);
-    for (link = &g_jobs; *link && (*link)->id != id; link = &(*link)->next) {}
+    for (link = &g_jobs; *link && (*link)->id != id; link = &(*link)->jobs_next) {}
     j = *link;
     if (!j) { pthread_mutex_unlock(&g_lock); return -2; }
     if (!j->done) { pthread_mutex_unlock(&g_lock); return 0; }
-    *link = j->next;
+    *link = j->jobs_next;
     *out = j->response;
     j->response = NULL;
     pthread_mutex_unlock(&g_lock);
@@ -263,6 +264,6 @@ void hb_http_shutdown(void) {
     j = g_jobs; g_jobs = NULL; g_queue_head = g_queue_tail = NULL; g_queue_size = 0;
     g_initialized = 0; g_stopping = 0;
     pthread_mutex_unlock(&g_lock);
-    while (j) { next = j->next; free_job(j); j = next; }
+    while (j) { next = j->jobs_next; free_job(j); j = next; }
     curl_global_cleanup();
 }
