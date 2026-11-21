@@ -60,7 +60,7 @@ fi
 
 cd "$ROOT"
 "${ZIG_CMD[@]}" cc -target "$TARGET" -O2 -fPIC -fvisibility=hidden -Wall -Wextra \
-  -shared -Wl,-soname,libjsapi_hyperhttp.so -Wl,--exclude-libs,ALL \
+  -shared -Wl,-soname,libjsapi_hyperhttp.so \
   -I"$ROOT/native/quickjs" -I"$ROOT/native" \
   "$ROOT/native/http_plugin.c" "$ROOT/native/http_client.c" \
   "$PREFIX/lib/libcurl.a" -Wl,-Bstatic "$PREFIX/lib/libssl.a" "$PREFIX/lib/libcrypto.a" \
