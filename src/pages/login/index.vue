@@ -4,6 +4,7 @@
       <div class="login-info">
         <text class="title">扫码登录哔哩哔哩</text>
         <text class="hint">{{ hint }}</text>
+        <text class="status">首次使用请设置密码；以后每次启动都需要输入。密码无法找回。</text>
         <text v-if="!show_qr" class="status">{{ status }}</text>
         <input class="vault-input" type="password" v-model="vaultPassword" placeholder="设置或输入凭证库密码（至少 8 位）" />
         <div class="retry vault-action" @click="UnlockVault"><text class="retry-text">解锁并继续</text></div>
@@ -104,7 +105,9 @@ export default {
             this.show_retry = true
           }
         }
-      } catch (error) {}
+      } catch (error) {
+        this.hint = '登录或加密保存失败：' + (error && error.message ? error.message : String(error))
+      }
     }
   }
 }
