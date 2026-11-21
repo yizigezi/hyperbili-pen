@@ -135,3 +135,11 @@ __attribute__((visibility("default")))
 void custom_init_jsapis(void) {
     registerCModuleLoader("hyperHttp", hyper_http_module_load);
 }
+
+
+/* The host unloads libjsapi_*.so with the native runtime. Never leave detached
+ * workers behind; all workers are joined before this library is unloaded. */
+__attribute__((destructor))
+static void hyper_http_library_unload(void) {
+    hb_http_shutdown();
+}
