@@ -128,6 +128,8 @@ static void perform_job(hb_job *j) {
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, j->timeout_ms);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, j->timeout_ms);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "HyperBilibili-Pen/0.1");
     if (j->body && j->body_len) {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, j->body);
@@ -246,6 +248,7 @@ int hb_http_poll(uint64_t id, hb_http_response **out) {
     if (!j) { pthread_mutex_unlock(&g_lock); return -2; }
     if (!j->done) { pthread_mutex_unlock(&g_lock); return 0; }
     *link = j->jobs_next;
+    if (g_outstanding) --g_outstanding;
     *out = j->response;
     j->response = NULL;
     pthread_mutex_unlock(&g_lock);
