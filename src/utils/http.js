@@ -216,7 +216,8 @@ async function requestViaNativeCurl({ url, method, headers, body }) {
   let module;
   try {
     module = await import('hyperHttp');
-  } catch (error) {
+  } catch (cause) {
+    const error = new Error('hyperHttp native JSAPI is unavailable: ' + String(cause));
     error.code = 'NATIVE_HTTP_UNAVAILABLE';
     throw error;
   }
