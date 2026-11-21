@@ -40,3 +40,23 @@ Passwords must be at least 8 bytes. The caller must clear its own password buffe
 ## Integration status
 
 This is a native library prototype only. The current MiniApp repository has no confirmed JS-to-native invocation contract, so the Vue login flow is intentionally not switched to it yet. Do not fall back to plaintext storage if the native provider is unavailable. Once the device-side bridge is confirmed, wire this API behind a CredentialManager adapter and add the vault unlock UI.
+
+
+## Native HTTP / libcurl (ARMv7)
+
+```sh
+bash native/build-libcurl-armv7.sh
+```
+
+The script cross-builds OpenSSL 1.1.1w and libcurl 8.12.1 as static PIC archives, then links them into `libhyperhttp.so`. This keeps the device's OpenSSL 1.1 runtime ABI out of the dependency chain and avoids requiring curl/OpenSSL headers on the pen. HTTPS peer and hostname verification remain enabled (libcurl defaults).
+
+The exported API is in `http_client.h`:
+
+- `hb_http_init()` / `hb_http_shutdown()`: start and drain a bounded worker pool (2 workers).
+- `hb_http_submit()`: copy request URL, headers, and body into native-owned memory and enqueue it. Queue capacity is bounded (8 waiting requests); overload returns an error.
+- `hb_http_poll()`: non-blocking completion poll. Only the caller/JS owner thread should convert results into JS values and settle Promises.
+- `hb_http_response_free()`: release response memory.
+
+Workers perform all libcurl work. They never receive or access QuickJS runtime/context/value pointers. The response's raw header buffer preserves each header line separately, including repeated `Set-Cookie` lines; it deliberately does not join them with commas (a comma can occur inside cookie attributes such as `Expires`). Redirect response header blocks are retained too, so the JS adapter should select the final HTTP header block while keeping each Set-Cookie line as a separate array item.
+
+**Integration status:** this commit adds the ARM native library and C async API, but does not yet register a Falcon JSAPI binding. Until that binding is connected, `src/utils/http.js` cannot call this library directly and must not claim the libcurl backend is active. The JSAPI binding must call submit/poll from the QuickJS owner thread, poll without blocking, resolve/reject Promise only on that thread, and call `hb_http_shutdown()` before the native runtime is destroyed.
