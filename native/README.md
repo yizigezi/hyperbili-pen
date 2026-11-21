@@ -50,10 +50,12 @@ bash native/build-libcurl-armv7.sh
 
 The script cross-builds OpenSSL 1.1.1w and libcurl 8.12.1 as static PIC archives, then links them into `libhyperhttp.so`. This keeps the device's OpenSSL 1.1 runtime ABI out of the dependency chain and avoids requiring curl/OpenSSL headers on the pen. HTTPS peer and hostname verification remain enabled (libcurl defaults).
 
-The exported API is in `http_client.h`:
+The Falcon module is registered as `hyperHttp` by `custom_init_jsapis()` in `http_plugin.c` (QuickJS C-module ABI shared with `readex-nt`). JS imports it with `import('hyperHttp')`. The adapter in `src/utils/http.js` submits work, then polls every 20 ms from the JS event loop; it never waits synchronously for network I/O. The app build downloads this native library into `libs/` before packaging, so the `.amr` contains `libs/libjsapi_hyperhttp.so`.
+
+The exported C API is in `http_client.h`:
 
 - `hb_http_init()` / `hb_http_shutdown()`: start and drain a bounded worker pool (2 workers).
-- `hb_http_submit()`: copy request URL, headers, and body into native-owned memory and enqueue it. Queue capacity is bounded (8 waiting requests); overload returns an error.
+- `hb_http_submit()`: copy request URL, headers, and body into native-owned memory and enqueue it. All outstanding requests (queued, active, or completed-but-not-polled) are bounded to 8; overload returns an error.
 - `hb_http_poll()`: non-blocking completion poll. Only the caller/JS owner thread should convert results into JS values and settle Promises.
 - `hb_http_response_free()`: release response memory.
 
