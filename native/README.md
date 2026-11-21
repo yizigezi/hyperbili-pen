@@ -48,7 +48,7 @@ This is a native library prototype only. The current MiniApp repository has no c
 bash native/build-libcurl-armv7.sh
 ```
 
-The script cross-builds OpenSSL 1.1.1w and libcurl 8.12.1 as static PIC archives, then links them into `libhyperhttp.so`. This keeps the device's OpenSSL 1.1 runtime ABI out of the dependency chain and avoids requiring curl/OpenSSL headers on the pen. HTTPS peer and hostname verification remain enabled (libcurl defaults).
+The script cross-builds OpenSSL 1.1.1w and libcurl 8.12.1 as static PIC archives, then links them into `libs/libjsapi_hyperhttp.so`. It targets ARMv7 hard-float with glibc 2.23 and statically includes TLS dependencies, so it does not depend on the pen's OpenSSL 1.1 ABI or headers. HTTPS peer and hostname verification are explicitly enabled.
 
 The Falcon module is registered as `hyperHttp` by `custom_init_jsapis()` in `http_plugin.c` (QuickJS C-module ABI shared with `readex-nt`). JS imports it with `import('hyperHttp')`. The adapter in `src/utils/http.js` submits work, then polls every 20 ms from the JS event loop; it never waits synchronously for network I/O. The app build downloads this native library into `libs/` before packaging, so the `.amr` contains `libs/libjsapi_hyperhttp.so`.
 
@@ -61,4 +61,4 @@ The exported C API is in `http_client.h`:
 
 Workers perform all libcurl work. They never receive or access QuickJS runtime/context/value pointers. The response's raw header buffer preserves each header line separately, including repeated `Set-Cookie` lines; it deliberately does not join them with commas (a comma can occur inside cookie attributes such as `Expires`). Redirect response header blocks are retained too, so the JS adapter should select the final HTTP header block while keeping each Set-Cookie line as a separate array item.
 
-**Integration status:** this commit adds the ARM native library and C async API, but does not yet register a Falcon JSAPI binding. Until that binding is connected, `src/utils/http.js` cannot call this library directly and must not claim the libcurl backend is active. The JSAPI binding must call submit/poll from the QuickJS owner thread, poll without blocking, resolve/reject Promise only on that thread, and call `hb_http_shutdown()` before the native runtime is destroyed.
+**Runtime lifecycle:** `http_plugin.c` exports `custom_init_jsapis()` and registers the `hyperHttp` QuickJS module. `src/utils/http.js` imports it dynamically, submits requests, and polls from the JS event loop; it never waits synchronously for network I/O. The shared-library destructor calls `hb_http_shutdown()` and joins all workers before unload. Workers never touch QuickJS. `src/bilibiliclient/login.js` now handles `set-cookie` as a list and no longer splits cookie strings on commas.
