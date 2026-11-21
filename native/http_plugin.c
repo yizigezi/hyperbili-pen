@@ -33,7 +33,7 @@ static JSValue js_submit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         JS_FreeValue(ctx, lenv);
         if (n > HB_HTTP_MAX_HEADERS) {
             JS_FreeCString(ctx, url);
-            if (method != (const char*)"GET") JS_FreeCString(ctx, method);
+            if (method_owned) JS_FreeCString(ctx, method);
             return JS_ThrowRangeError(ctx, "too many HTTP headers");
         }
         header_count = n;
