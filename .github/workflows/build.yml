@@ -55,3 +55,29 @@ jobs:
           path: "*.amr"
           if-no-files-found: error
           retention-days: 14
+
+  native-http:
+    name: ARMv7 libcurl native HTTP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf make perl python3 curl file
+
+      - name: Build bundled libcurl and async HTTP client
+        run: |
+          bash native/build-libcurl-armv7.sh
+          file native/libhyperhttp.so
+          readelf -h native/libhyperhttp.so | grep -E 'Class:|Machine:'
+
+      - name: Upload native HTTP library
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperbili-native-http-armv7
+          path: native/libhyperhttp.so
+          if-no-files-found: error
+          retention-days: 14
