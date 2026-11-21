@@ -114,16 +114,17 @@ export const BilibiliClientLoginMethods = {
 
   // 从响应头中提取Cookies
   extractCookiesFromResponse(setCookieHeaders) {
-    if (typeof setCookieHeaders === 'string') {
-      setCookieHeaders = setCookieHeaders.split(', ');
-    }
-
-    setCookieHeaders.forEach((cookie) => {
-      if (cookie.includes('SESSDATA')) this.sessData = this.parseCookie(cookie, 'SESSDATA');
-      else if (cookie.includes('bili_jct')) this.biliJct = this.parseCookie(cookie, 'bili_jct');
-      else if (cookie.includes('DedeUserID') && !cookie.includes('DedeUserID__ckMd5'))
-        this.dedeUserID = this.parseCookie(cookie, 'DedeUserID');
-      else if (cookie.includes('sid')) this.sid = this.parseCookie(cookie, 'sid');
+    const cookieLines = Array.isArray(setCookieHeaders) ? setCookieHeaders : [setCookieHeaders];
+    cookieLines.forEach((cookie) => {
+      if (typeof cookie !== 'string') return;
+      const sessData = this.parseCookie(cookie, 'SESSDATA');
+      const biliJct = this.parseCookie(cookie, 'bili_jct');
+      const dedeUserID = this.parseCookie(cookie, 'DedeUserID');
+      const sid = this.parseCookie(cookie, 'sid');
+      if (sessData) this.sessData = sessData;
+      if (biliJct) this.biliJct = biliJct;
+      if (dedeUserID) this.dedeUserID = dedeUserID;
+      if (sid) this.sid = sid;
     });
   },
 
