@@ -1,5 +1,6 @@
 #include "quickjs.h"
 #include "http_client.h"
+#include "credential_plugin.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -135,6 +136,7 @@ static JSModuleDef *hyper_http_module_load(JSContext *ctx, const char *name) {
 __attribute__((visibility("default")))
 void custom_init_jsapis(void) {
     registerCModuleLoader("hyperHttp", hyper_http_module_load);
+    register_hyper_credential_jsapi();
 }
 
 
