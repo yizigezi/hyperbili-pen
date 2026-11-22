@@ -49,7 +49,11 @@
     </scroll>
 
     <div class="sendbox">
-      <input class="sendinput" v-model="input_text" placeholder="输入私信内容" />
+      <div class="sendinput" @click="OpenSystemInput">
+        <text class="sendinput-text" :class="{ 'sendinput-placeholder': !input_text }">
+          {{ input_text || '点击输入私信内容' }}
+        </text>
+      </div>
       <div class="sendbtn" @click="SendMsg">
         <text class="sendbtn-text">发送</text>
       </div>
@@ -118,6 +122,29 @@ export default {
         return c[field] || ''
       } catch (e) {
         return ''
+      }
+    },
+    OpenSystemInput() {
+      const falcon = (typeof $falcon !== 'undefined' && $falcon) ||
+        (typeof window !== 'undefined' && window.$falcon)
+      if (!falcon || typeof falcon.showSoftInput !== 'function') {
+        this.showToast('当前固件未提供系统输入法接口')
+        return
+      }
+      try {
+        falcon.showSoftInput({
+          type: 'text',
+          placeholder: '输入私信内容',
+          onConfirm: (value) => {
+            // Falcon 输入法回调通常直接返回文本；兼容对象形式的回传值。
+            const text = typeof value === 'string'
+              ? value
+              : (value && (value.text || value.value || value.content)) || ''
+            this.input_text = String(text)
+          }
+        })
+      } catch (error) {
+        this.showToast('调用系统输入法失败：' + (error && error.message ? error.message : error))
       }
     },
     async SendMsg() {
@@ -289,8 +316,18 @@ export default {
   border-radius: 23px;
   background-color: #242424;
   padding: 0 18px;
+  justify-content: center;
+}
+
+.sendinput-text {
   font-size: 18px;
   color: #ffffff;
+  max-height: 30px;
+  text-overflow: ellipsis;
+}
+
+.sendinput-placeholder {
+  color: #888888;
 }
 
 .sendbtn {
