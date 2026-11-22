@@ -44,7 +44,7 @@
     <div class="screen qr-screen" v-else>
       <div class="qr-card">
         <FlQrcode v-if="show_qr" :text="qr_value" :size="184" />
-        <text v-else class="qr-placeholder">{{ qrLoading ? '二维码加载中…' : '二维码暂不可用' }}</text>
+        <text v-else class="qr-placeholder">{{ qrLoading ? '二维码加载中…' : (qrError || '二维码暂不可用') }}</text>
       </div>
       <div class="qr-info">
         <text class="title">扫码登录哔哩哔哩</text>
@@ -80,6 +80,7 @@ export default {
       show_qr: false,
       show_retry: false,
       qrLoading: false,
+      qrError: '',
       status: '请输入凭证库密钥。',
       hint: '请使用手机哔哩哔哩扫描二维码',
       vaultPassword: '',
@@ -150,6 +151,7 @@ export default {
       this.show_retry = false
       this.show_qr = false
       this.qrLoading = true
+      this.qrError = ''
       this.status = '正在获取登录二维码…'
       try {
         const result = await biliclient.loginQR()
@@ -162,8 +164,11 @@ export default {
         this.status = '等待扫码…'
       } catch (error) {
         this.qrLoading = false
-        this.status = '二维码获取失败，请刷新重试。'
+        const message = error && error.message ? error.message : String(error)
+        this.qrError = message
+        this.status = '二维码获取失败：' + message
         this.show_retry = true
+        this.showToast(message)
       }
     },
     async PollQR() {
