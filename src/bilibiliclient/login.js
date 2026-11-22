@@ -7,6 +7,7 @@
  */
 import credential from '../utils/credential.js';
 import logger from '../utils/logger.js';
+import http from '../utils/http.js';
 
 export const BilibiliClientLoginMethods = {
   // 更新账号信息（返回是否登录有效）
@@ -35,14 +36,46 @@ export const BilibiliClientLoginMethods = {
   // 获取二维码信息
   async loginQR() {
     logger.log('请求登录二维码');
-    const response = await this.getRequest(
-      'https://passport.bilibili.com/x/passport-login/web/qrcode/generate'
-    );
-    if (response && response.data) {
-      this.qrCodeKey = response.data.data.qrcode_key;
-      return { url: response.data.data.url, qrcode_key: response.data.data.qrcode_key };
+    // QR generation must preserve transport errors and HTTP/API diagnostics.
+    // getRequest() intentionally converts failures to undefined for legacy callers,
+    // which made this page report only a generic "获取二维码失败".
+    let response;
+    try {
+      response = await http.getJson(
+        'https://passport.bilibili.com/x/passport-login/web/qrcode/generate',
+        this.getHeaders()
+      );
+    } catch (error) {
+      logger.error('二维码请求网络失败：', error);
+      throw new Error('二维码请求网络失败：' + (error && error.message ? error.message : String(error)));
     }
-    throw new Error('获取二维码失败');
+
+    if (!response || response.status < 200 || response.status >= 300) {
+      const status = response && typeof response.status === 'number' ? response.status : '未知';
+      logger.error('二维码接口 HTTP 状态异常：', status);
+      throw new Error('二维码接口 HTTP 状态异常（' + status + '）');
+    }
+
+    const payload = response.json;
+    if (!payload || typeof payload !== 'object') {
+      logger.error('二维码接口返回非 JSON：', response.bodyText ? response.bodyText.slice(0, 160) : '(empty)');
+      throw new Error('二维码接口返回内容无法解析');
+    }
+    if (payload.code !== 0) {
+      const message = payload.message || payload.msg || '未知接口错误';
+      logger.error('二维码接口业务错误：', payload.code, message);
+      throw new Error('B站二维码接口错误：' + message + '（' + payload.code + '）');
+    }
+
+    const data = payload.data;
+    if (!data || typeof data.url !== 'string' || !data.url ||
+        typeof data.qrcode_key !== 'string' || !data.qrcode_key) {
+      logger.error('二维码接口缺少必要字段');
+      throw new Error('B站二维码接口未返回二维码地址或 key');
+    }
+
+    this.qrCodeKey = data.qrcode_key;
+    return { url: data.url, qrcode_key: data.qrcode_key };
   },
 
   // 登录：优先本地存储的账号数据；send_req=true 时轮询扫码结果
