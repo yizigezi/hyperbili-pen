@@ -1,33 +1,60 @@
 <template>
   <div class="page">
-    <div class="login-content">
-      <div class="login-info">
-        <text class="title">扫码登录哔哩哔哩</text>
-        <text class="hint">{{ hint }}</text>
-        <text class="status">首次使用请设置密码；以后每次启动都需要输入。密码无法找回。</text>
-        <text v-if="!show_qr" class="status">{{ status }}</text>
-        <text class="keypad-label">凭证密钥（数字，至少 8 位）</text>
+    <!-- 第 1 页：凭证密钥 -->
+    <div class="screen" v-if="currentStep === 'key'">
+      <div class="key-info">
+        <text class="title">设置凭证密钥</text>
+        <text class="description">首次使用请设置数字密钥；已有账号请输入原密钥。</text>
+        <text class="description">每次启动都需要输入，忘记后无法找回。</text>
         <div class="password-display">
-          <text class="password-dots">{{ vaultPassword ? '● '.repeat(vaultPassword.length) : '请输入数字密钥' }}</text>
-          <text class="password-count">{{ vaultPassword.length }} 位</text>
+          <text class="password-dots">{{ vaultPassword ? '● '.repeat(vaultPassword.length) : '输入 8–32 位数字' }}</text>
+          <text class="password-count">{{ vaultPassword.length }}/32</text>
         </div>
-        <div class="number-keypad">
-          <div class="number-key" v-for="n in ['1','2','3','4','5','6','7','8','9']" :key="n" @click="AppendDigit(n)">
-            <text class="number-key-text">{{ n }}</text>
-          </div>
-          <div class="number-key number-key-action" @click="ClearPassword"><text class="number-key-text">清空</text></div>
-          <div class="number-key" @click="AppendDigit('0')"><text class="number-key-text">0</text></div>
-          <div class="number-key number-key-action" @click="Backspace"><text class="number-key-text">⌫</text></div>
-        </div>
-        <div class="retry vault-action" @click="UnlockVault"><text class="retry-text">解锁并继续</text></div>
-        <div class="retry" v-if="show_retry" @click="GetQR">
-          <text class="retry-text">刷新二维码</text>
+        <text class="status">{{ status }}</text>
+        <div class="primary-button" @click="UnlockVault">
+          <text class="button-text">确认并进入扫码页</text>
         </div>
       </div>
 
+      <div class="keypad">
+        <div class="key-row">
+          <div class="number-key" @click="AppendDigit('1')"><text class="number-key-text">1</text></div>
+          <div class="number-key" @click="AppendDigit('2')"><text class="number-key-text">2</text></div>
+          <div class="number-key" @click="AppendDigit('3')"><text class="number-key-text">3</text></div>
+        </div>
+        <div class="key-row">
+          <div class="number-key" @click="AppendDigit('4')"><text class="number-key-text">4</text></div>
+          <div class="number-key" @click="AppendDigit('5')"><text class="number-key-text">5</text></div>
+          <div class="number-key" @click="AppendDigit('6')"><text class="number-key-text">6</text></div>
+        </div>
+        <div class="key-row">
+          <div class="number-key" @click="AppendDigit('7')"><text class="number-key-text">7</text></div>
+          <div class="number-key" @click="AppendDigit('8')"><text class="number-key-text">8</text></div>
+          <div class="number-key" @click="AppendDigit('9')"><text class="number-key-text">9</text></div>
+        </div>
+        <div class="key-row">
+          <div class="number-key number-key-action" @click="ClearPassword"><text class="number-key-small">清空</text></div>
+          <div class="number-key" @click="AppendDigit('0')"><text class="number-key-text">0</text></div>
+          <div class="number-key number-key-action" @click="Backspace"><text class="number-key-small">退格</text></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第 2 页：二维码登录 -->
+    <div class="screen qr-screen" v-else>
       <div class="qr-card">
-        <FlQrcode v-if="show_qr" :text="qr_value" :size="180" />
-        <text v-else class="qr-placeholder">二维码加载中</text>
+        <FlQrcode v-if="show_qr" :text="qr_value" :size="184" />
+        <text v-else class="qr-placeholder">{{ qrLoading ? '二维码加载中…' : '二维码暂不可用' }}</text>
+      </div>
+      <div class="qr-info">
+        <text class="title">扫码登录哔哩哔哩</text>
+        <text class="description">{{ hint }}</text>
+        <text class="status">{{ status }}</text>
+        <text class="key-ready">凭证密钥已设置 · {{ vaultPassword.length }} 位</text>
+        <div class="actions">
+          <div class="secondary-button" @click="BackToKey"><text class="button-text">返回</text></div>
+          <div class="primary-button action-primary" v-if="show_retry" @click="GetQR"><text class="button-text">刷新二维码</text></div>
+        </div>
       </div>
     </div>
 
@@ -48,14 +75,17 @@ export default {
   components: { FlQrcode },
   data() {
     return {
+      currentStep: 'key',
       qr_value: '',
       show_qr: false,
       show_retry: false,
-      status: '正在获取二维码...',
-      hint: '打开手机哔哩哔哩扫码登录',
+      qrLoading: false,
+      status: '请输入凭证库密钥。',
+      hint: '请使用手机哔哩哔哩扫描二维码',
       vaultPassword: '',
       toast: '',
-      pollToken: null
+      pollToken: null,
+      polling: false
     }
   },
   methods: {
@@ -63,11 +93,11 @@ export default {
       this.toast = msg
       this.$page.setTimeout(() => { this.toast = '' }, 3000)
     },
-    async onShow() {
-      this.status = '请输入凭证库密码后继续';
+    onShow() {
+      this.status = '请输入凭证库密钥。'
     },
     onDestroy() {
-      this.$page.clearTimer(this.pollToken)
+      this.StopPolling()
     },
     AppendDigit(digit) {
       if (this.vaultPassword.length >= 32) return
@@ -79,12 +109,27 @@ export default {
     ClearPassword() {
       this.vaultPassword = ''
     },
+    StopPolling() {
+      if (this.pollToken !== null) {
+        this.$page.clearTimer(this.pollToken)
+        this.pollToken = null
+      }
+      this.polling = false
+    },
+    BackToKey() {
+      this.StopPolling()
+      this.currentStep = 'key'
+      this.show_qr = false
+      this.show_retry = false
+      this.status = '密钥已保留，可以修改后重新继续。'
+      this.hint = '请使用手机哔哩哔哩扫描二维码'
+    },
     async UnlockVault() {
-      if (!this.vaultPassword || this.vaultPassword.length < 8) {
-        this.showToast('密码至少需要 8 位')
+      if (this.vaultPassword.length < 8) {
+        this.showToast('数字密钥至少需要 8 位')
         return
       }
-      this.status = '正在解锁凭证库...'
+      this.status = '正在验证凭证密钥…'
       try {
         const result = await biliclient.login(false, this.vaultPassword)
         if (result && result.success) {
@@ -92,45 +137,56 @@ export default {
           $falcon.navTo('dmlist')
           return
         }
-        this.status = '未发现已保存账号，请扫码登录'
-        this.GetQR()
+        this.status = '尚无可用登录凭证，请在下一页扫码登录。'
+        await this.GetQR()
       } catch (error) {
-        this.status = '凭证库解锁失败'
+        this.status = '密钥验证失败，请检查密钥是否正确。'
         this.showToast(error && error.message ? error.message : String(error))
       }
     },
     async GetQR() {
+      this.StopPolling()
+      this.currentStep = 'qr'
       this.show_retry = false
       this.show_qr = false
-      this.status = '正在获取二维码...'
+      this.qrLoading = true
+      this.status = '正在获取登录二维码…'
       try {
-        const get_result = await biliclient.loginQR()
-        this.qr_value = get_result.url
+        const result = await biliclient.loginQR()
+        this.qr_value = result.url
         this.show_qr = true
-        this.hint = '打开手机哔哩哔哩扫码登录'
-        this.$page.clearTimer(this.pollToken)
+        this.qrLoading = false
+        this.hint = '打开手机哔哩哔哩，扫描左侧二维码并确认登录。'
+        this.polling = true
         this.pollToken = this.$page.setInterval(() => this.PollQR(), POLL_MS)
+        this.status = '等待扫码…'
       } catch (error) {
-        this.status = '二维码获取失败'
+        this.qrLoading = false
+        this.status = '二维码获取失败，请刷新重试。'
         this.show_retry = true
       }
     },
     async PollQR() {
+      if (!this.polling) return
       try {
         const result = await biliclient.login(true, this.vaultPassword)
         if (result.success) {
-          this.$page.clearTimer(this.pollToken)
+          this.StopPolling()
           this.vaultPassword = ''
           $falcon.navTo('dmlist')
         } else {
-          this.hint = result.message
+          this.hint = result.message || '等待扫码…'
           if (result.code === 86038) {
-            this.$page.clearTimer(this.pollToken)
+            this.StopPolling()
+            this.status = '二维码已过期，请刷新。'
             this.show_retry = true
           }
         }
       } catch (error) {
-        this.hint = '登录或加密保存失败：' + (error && error.message ? error.message : String(error))
+        this.StopPolling()
+        this.status = '登录或加密保存失败，请检查后重试。'
+        this.show_retry = true
+        this.showToast(error && error.message ? error.message : String(error))
       }
     }
   }
@@ -140,115 +196,193 @@ export default {
 <style lang="less">
 @import '../../styles/hyper.less';
 
-.login-content {
-  flex: 1;
+.page {
   width: 100%;
-  flex-direction: row;
-  align-items: center;
+  height: 100%;
+  padding: 0;
   justify-content: center;
-  padding: 16px 24px;
 }
 
-.login-info {
-  flex: 1;
+.screen {
+  width: 100%;
+  height: 100%;
+  padding: 10px 16px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.key-info {
+  width: 47%;
+  height: 100%;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  padding-right: 18px;
+  padding-right: 12px;
 }
 
 .title {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: bold;
   color: #ffffff;
 }
 
-.hint {
-  margin-top: 18px;
-  font-size: 20px;
-  color: #ffffff;
-}
-
-.status {
-  margin-top: 14px;
-  font-size: 18px;
-  color: #aaaaaa;
-}
-
-.keypad-label {
-  margin-top: 18px;
-  font-size: 16px;
+.description {
+  margin-top: 6px;
+  font-size: 14px;
   color: #dddddd;
 }
+
 .password-display {
   width: 100%;
-  min-height: 42px;
-  margin-top: 8px;
-  padding: 10px 12px;
+  height: 36px;
+  margin-top: 10px;
+  padding: 6px 10px;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   background-color: #ffffff;
-  border-radius: 8px;
+  border-radius: 6px;
 }
+
 .password-dots {
-  font-size: 18px;
+  font-size: 16px;
   color: #222222;
 }
+
 .password-count {
-  font-size: 14px;
+  font-size: 13px;
   color: #777777;
 }
-.number-keypad {
-  width: 100%;
-  margin-top: 10px;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
+
+.status {
+  margin-top: 7px;
+  font-size: 13px;
+  color: #ffb4ce;
 }
-.number-key {
-  width: 31%;
-  height: 42px;
-  margin-bottom: 6px;
+
+.primary-button {
+  height: 34px;
+  min-width: 150px;
+  margin-top: 9px;
+  padding: 0 14px;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 6px;
+  background-color: #ff7da8;
+}
+
+.button-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.keypad {
+  width: 49%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 8px;
+}
+
+.key-row {
+  width: 100%;
+  height: 37px;
+  margin-top: 3px;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.number-key {
+  width: 32%;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
   background-color: #34343b;
 }
+
 .number-key-action {
   background-color: #50505a;
 }
+
 .number-key-text {
-  font-size: 20px;
+  font-size: 19px;
   color: #ffffff;
 }
-.vault-action { margin-top: 8px; }
+
+.number-key-small {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.qr-screen {
+  justify-content: flex-start;
+}
 
 .qr-card {
-  width: 200px;
-  height: 200px;
+  width: 204px;
+  height: 204px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background-color: #ffffff;
 }
 
 .qr-placeholder {
-  font-size: 16px;
+  font-size: 14px;
   color: #585858;
 }
 
-.retry {
-  margin-top: 20px;
-  padding: 12px 24px;
-  border-radius: 20px;
-  background-color: #ff7da8;
+.qr-info {
+  flex: 1;
+  height: 100%;
+  margin-left: 22px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-.retry-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ffffff;
+.key-ready {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #9c9ca5;
+}
+
+.actions {
+  width: 100%;
+  margin-top: 10px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.secondary-button {
+  height: 32px;
+  min-width: 76px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background-color: #50505a;
+}
+
+.action-primary {
+  min-width: 112px;
+  height: 32px;
+  margin-top: 0;
+  margin-left: 10px;
+}
+
+.toast {
+  left: 16px;
+  right: 16px;
+  bottom: 8px;
+  padding: 7px 10px;
+}
+
+.toast-text {
+  font-size: 13px;
 }
 </style>
