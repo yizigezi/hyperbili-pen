@@ -100,7 +100,8 @@ static void perform_job(hb_job *j) {
     CURL *curl = curl_easy_init();
     CURLcode code;
     hb_buffer headers = {0}, body = {0};
-    long status = 0;
+    long status = 0, ssl_verify_result = 0, os_errno = 0;
+    char error_buffer[CURL_ERROR_SIZE] = {0};
     size_t i;
     j->response = (hb_http_response *)calloc(1, sizeof(*j->response));
     if (!j->response) return;
@@ -114,6 +115,7 @@ static void perform_job(hb_job *j) {
         }
         j->curl_headers = next;
     }
+    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buffer);
     curl_easy_setopt(curl, CURLOPT_URL, j->url);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, j->method);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, j->curl_headers);
@@ -137,6 +139,8 @@ static void perform_job(hb_job *j) {
     }
     code = curl_easy_perform(curl);
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_easy_getinfo(curl, CURLINFO_SSL_VERIFYRESULT, &ssl_verify_result);
+    curl_easy_getinfo(curl, CURLINFO_OS_ERRNO, &os_errno);
     j->response->status = status;
     j->response->headers = headers.data;
     j->response->headers_len = headers.len;
@@ -144,7 +148,10 @@ static void perform_job(hb_job *j) {
     j->response->body_len = body.len;
     headers.data = NULL; body.data = NULL;
     if (code != CURLE_OK) {
-        snprintf(j->response->error, sizeof(j->response->error), "%s", curl_easy_strerror(code));
+        const char *detail = error_buffer[0] ? error_buffer : curl_easy_strerror(code);
+        snprintf(j->response->error, sizeof(j->response->error),
+            "%s (curl=%d, ssl_verify=%ld, os_errno=%ld)",
+            detail, (int)code, ssl_verify_result, os_errno);
     }
     free(headers.data);
     free(body.data);
