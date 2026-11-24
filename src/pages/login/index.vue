@@ -173,27 +173,34 @@ export default {
           const cookieCount = Array.isArray(cookieValue)
             ? cookieValue.length
             : (cookieValue ? 1 : 0)
-          const status = response.status || response.statusCode || '未知'
+          const status = response.status || response.statusCode ||
+            response.status_code || response.httpStatus ||
+            response.responseCode || '未知'
           const body = response.result || response.body ||
-            response.text || response.data || ''
+            response.text || response.data || response.response || ''
           let apiCode = '未解析'
+          let bodyKeys = []
           if (typeof body === 'string') {
             try {
               const parsed = JSON.parse(body)
-              if (parsed && typeof parsed.code === 'number') {
-                apiCode = String(parsed.code)
+              if (parsed && typeof parsed === 'object') {
+                if (typeof parsed.code === 'number') apiCode = String(parsed.code)
+                bodyKeys = Object.keys(parsed).slice(0, 8)
               }
             } catch (error) {}
-          } else if (body && typeof body === 'object' &&
-            typeof body.code === 'number') {
-            apiCode = String(body.code)
+          } else if (body && typeof body === 'object') {
+            if (typeof body.code === 'number') apiCode = String(body.code)
+            bodyKeys = Object.keys(body).slice(0, 8)
           }
 
+          const responseKeys = Object.keys(response).slice(0, 12)
           finish(
             'HTTPS 返回：' + status +
             ' · B站 API：' + apiCode +
+            ' · 响应字段：' + (responseKeys.join(',') || '无') +
             ' · 响应头：' + headerKeys.length + ' 项' +
-            ' · Set-Cookie：' + cookieCount + ' 项'
+            ' · Set-Cookie：' + cookieCount + ' 项' +
+            (bodyKeys.length ? ' · Body字段：' + bodyKeys.join(',') : '')
           )
         })
       } catch (error) {
