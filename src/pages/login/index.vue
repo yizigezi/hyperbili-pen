@@ -11,9 +11,15 @@
           <text class="password-count">{{ vaultPassword.length }}/32</text>
         </div>
         <text class="status">{{ status }}</text>
-        <div class="primary-button" @click="UnlockVault">
-          <text class="button-text">确认并进入扫码页</text>
+        <div class="login-actions">
+          <div class="primary-button" @click="UnlockVault">
+            <text class="button-text">确认并进入扫码页</text>
+          </div>
+          <div class="secondary-button network-test-button" @click="TestSystemHttp">
+            <text class="button-text">测试系统网络</text>
+          </div>
         </div>
+        <text v-if="networkTestResult" class="network-result">{{ networkTestResult }}</text>
       </div>
 
       <div class="keypad">
@@ -85,6 +91,8 @@ export default {
       hint: '请使用手机哔哩哔哩扫描二维码',
       vaultPassword: '',
       toast: '',
+      networkTesting: false,
+      networkTestResult: '',
       pollToken: null,
       polling: false
     }
@@ -124,6 +132,74 @@ export default {
       this.show_retry = false
       this.status = '密钥已保留，可以修改后重新继续。'
       this.hint = '请使用手机哔哩哔哩扫描二维码'
+    },
+    TestSystemHttp() {
+      if (this.networkTesting) return
+      const http = typeof $falcon !== 'undefined' &&
+        $falcon.jsapi && $falcon.jsapi.http
+      if (!http || typeof http.request !== 'function') {
+        this.networkTestResult = '系统 HTTP JSAPI 不可用'
+        return
+      }
+
+      this.networkTesting = true
+      this.networkTestResult = '正在测试系统 HTTPS…'
+      const finish = (message) => {
+        this.networkTesting = false
+        this.networkTestResult = message
+      }
+
+      try {
+        http.request({
+          url: 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate',
+          method: 'GET',
+          header: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        }, (response) => {
+          if (!response || typeof response !== 'object') {
+            finish('请求已回调，但响应格式无法识别')
+            return
+          }
+
+          const headers = response.headers || response.header || null
+          const headerKeys = headers && typeof headers === 'object'
+            ? Object.keys(headers)
+            : []
+          const cookieKey = headerKeys.find(
+            key => key.toLowerCase() === 'set-cookie'
+          )
+          const cookieValue = cookieKey ? headers[cookieKey] : null
+          const cookieCount = Array.isArray(cookieValue)
+            ? cookieValue.length
+            : (cookieValue ? 1 : 0)
+          const status = response.status || response.statusCode || '未知'
+          const body = response.result || response.body ||
+            response.text || response.data || ''
+          let apiCode = '未解析'
+          if (typeof body === 'string') {
+            try {
+              const parsed = JSON.parse(body)
+              if (parsed && typeof parsed.code === 'number') {
+                apiCode = String(parsed.code)
+              }
+            } catch (error) {}
+          } else if (body && typeof body === 'object' &&
+            typeof body.code === 'number') {
+            apiCode = String(body.code)
+          }
+
+          finish(
+            'HTTPS 返回：' + status +
+            ' · B站 API：' + apiCode +
+            ' · 响应头：' + headerKeys.length + ' 项' +
+            ' · Set-Cookie：' + cookieCount + ' 项'
+          )
+        })
+      } catch (error) {
+        finish('系统 HTTP 请求失败：' +
+          (error && error.message ? error.message : String(error)))
+      }
     },
     async UnlockVault() {
       if (this.vaultPassword.length < 8) {
@@ -266,6 +342,12 @@ export default {
   color: #ffb4ce;
 }
 
+.login-actions {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 2px;
+}
+
 .primary-button {
   height: 34px;
   min-width: 150px;
@@ -275,6 +357,19 @@ export default {
   justify-content: center;
   border-radius: 6px;
   background-color: #ff7da8;
+}
+
+.network-test-button {
+  height: 34px;
+  min-width: 112px;
+  margin-top: 9px;
+  margin-left: 8px;
+}
+
+.network-result {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #b9e6ff;
 }
 
 .button-text {
