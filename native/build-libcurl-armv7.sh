@@ -49,7 +49,7 @@ import sys
 
 source_path, c_path, h_path = map(pathlib.Path, sys.argv[1:])
 data = source_path.read_bytes()
-if not data.startswith(b"-----BEGIN CERTIFICATE-----"):
+if b"-----BEGIN CERTIFICATE-----" not in data:
     raise SystemExit("CA bundle does not look like a PEM certificate bundle")
 nl = chr(10)
 c_source = '#include "ca_bundle.h"' + nl + 'const unsigned char hb_ca_bundle[] = {' + nl
