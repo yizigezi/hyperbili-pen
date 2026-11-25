@@ -42,4 +42,5 @@ export async function load(password) {
   }
 }
 export async function remove() { await run('delete', ''); }
-export default { store, load, remove };
+export async function exists() { return (await run('exists', '')) === '1'; }
+export default { store, load, remove, exists };
