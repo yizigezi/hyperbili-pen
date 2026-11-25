@@ -125,7 +125,6 @@ export default {
       this.currentStep = 'key'
       this.show_qr = false
       this.show_retry = false
-      this.vaultPassword = ''
       this.firstPassword = ''
       this.currentStep = 'key'
       this.status = '请输入凭证库密钥。'
