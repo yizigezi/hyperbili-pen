@@ -11,7 +11,7 @@ TOOLCHAIN="arm-linux-gnueabihf-"
 
 CA_BUNDLE_COMMIT="024ad1476500f7593a6c08061b1273fd44f35158"
 CA_BUNDLE_URL="https://raw.githubusercontent.com/composer/ca-bundle/$CA_BUNDLE_COMMIT/res/cacert.pem"
-CA_BUNDLE_SHA256="15e5bdd831e4ac51b97638e157a5c282d0423da223d0311851382aa7cb733d17"
+CA_BUNDLE_SHA256="586f451f7a2b5b93347137c4bad87b3baf698591417653aa280c7e5ccefec3bc"
 CA_FILE="$WORK/cacert.pem"
 CA_SOURCE="$WORK/ca_bundle.c"
 CA_HEADER="$WORK/ca_bundle.h"
