@@ -168,6 +168,11 @@ export const BilibiliClientLoginMethods = {
     return match ? match[1] : null;
   },
 
+  // 检查凭证库是否已创建
+  async hasCredentialVault() {
+    return credential.exists();
+  },
+
   // 获取本地存储的账号数据
   async getStoredAccountData(password) {
     if (!password) return null;
