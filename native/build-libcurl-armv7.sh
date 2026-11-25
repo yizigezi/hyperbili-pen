@@ -66,7 +66,8 @@ h_path.write_text(
     encoding="ascii"
 )
 print("Verified and prepared embedded CA bundle:", len(data), "bytes")
-PYCC="${ZIG_CMD[*]} cc -target $TARGET"
+PY
+CC="${ZIG_CMD[*]} cc -target $TARGET"
 AR="${TOOLCHAIN}ar"
 RANLIB="${TOOLCHAIN}ranlib"
 
