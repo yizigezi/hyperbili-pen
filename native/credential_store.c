@@ -105,6 +105,7 @@ done:
 int cs_load(const char *path, const char *password, unsigned char **out_data, size_t *out_len) {
     int fd = -1, rc = -2, a = 0, b = 0;
     struct stat st;
+    memset(&st, 0, sizeof(st));
     unsigned char *buf = NULL, *plain = NULL, key[CS_KEY_LEN];
     const unsigned char *salt, *nonce, *tag, *cipher;
     size_t cipher_len = 0;
@@ -116,7 +117,8 @@ int cs_load(const char *path, const char *password, unsigned char **out_data, si
               | O_NOFOLLOW
 #endif
     );
-    if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+    if (fd < 0) { rc = (errno == ENOENT) ? -4 : -2; goto done; }
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
         st.st_size < (off_t)CS_HEADER_LEN ||
         st.st_size > (off_t)(CS_HEADER_LEN + CS_MAX_DATA + EVP_MAX_BLOCK_LENGTH)) goto done;
     buf = malloc((size_t)st.st_size);
