@@ -44,6 +44,7 @@ fetch_source "curl-$CURL_VERSION" "https://curl.se/download/curl-$CURL_VERSION.t
 curl -fL "$CA_BUNDLE_URL" -o "$CA_FILE"
 echo "$CA_BUNDLE_SHA256  $CA_FILE" | sha256sum -c -
 python3 - "$CA_FILE" "$CA_SOURCE" "$CA_HEADER" <<'PY'
+import json
 import pathlib
 import sys
 
@@ -51,25 +52,22 @@ source_path, c_path, h_path = map(pathlib.Path, sys.argv[1:])
 data = source_path.read_bytes()
 if not data.startswith(b"-----BEGIN CERTIFICATE-----"):
     raise SystemExit("CA bundle does not look like a PEM certificate bundle")
-c_path.write_text(
-    '#include "ca_bundle.h"\n'
-    'const unsigned char hb_ca_bundle[] = {\n' +
-    ''.join("  " + ", ".join("0x%02x" % b for b in data[i:i+16]) + ",\n"
-            for i in range(0, len(data), 16)) +
-    '};\nconst size_t hb_ca_bundle_len = sizeof(hb_ca_bundle);\n',
-    encoding="ascii"
-)
+lines = data.decode("ascii").splitlines(keepends=True)
+c_source = '#include "ca_bundle.h"\\nconst unsigned char hb_ca_bundle[] = {\\n'
+c_source += ''.join('  ' + ', '.join('0x%02x' % b for b in data[i:i+16]) + ',\\n'
+                    for i in range(0, len(data), 16))
+c_source += '};\\nconst size_t hb_ca_bundle_len = sizeof(hb_ca_bundle);\\n'
+c_path.write_text(c_source, encoding="ascii")
 h_path.write_text(
-    '#ifndef HB_CA_BUNDLE_H\n#define HB_CA_BUNDLE_H\n'
-    '#include <stddef.h>\n'
-    'extern const unsigned char hb_ca_bundle[];\n'
-    'extern const size_t hb_ca_bundle_len;\n'
-    '#endif\n',
+    '#ifndef HB_CA_BUNDLE_H\\n#define HB_CA_BUNDLE_H\\n'
+    '#include <stddef.h>\\n'
+    'extern const unsigned char hb_ca_bundle[];\\n'
+    'extern const size_t hb_ca_bundle_len;\\n'
+    '#endif\\n',
     encoding="ascii"
 )
 print("Verified and prepared embedded CA bundle:", len(data), "bytes")
 PY
-
 CC="${ZIG_CMD[*]} cc -target $TARGET"
 AR="${TOOLCHAIN}ar"
 RANLIB="${TOOLCHAIN}ranlib"
@@ -99,7 +97,7 @@ cd "$ROOT"
 "${ZIG_CMD[@]}" cc -target "$TARGET" -O2 -fPIC -fvisibility=hidden -Wall -Wextra \
   -shared -Wl,-soname,libjsapi_hyperhttp.so \
   -I"$ROOT/native/quickjs" -I"$ROOT/native" -I"$PREFIX/include" \
-  "$ROOT/native/http_plugin.c" "$ROOT/native/http_client.c" \
+  "$ROOT/native/http_plugin.c" "$ROOT/native/http_client.c" "$CA_SOURCE" \
   "$ROOT/native/credential_plugin.c" "$ROOT/native/credential_store.c" \
   "$PREFIX/lib/libcurl.a" -Wl,-Bstatic "$PREFIX/lib/libssl.a" "$PREFIX/lib/libcrypto.a" \
   -Wl,-Bdynamic -ldl -lpthread -lm \
