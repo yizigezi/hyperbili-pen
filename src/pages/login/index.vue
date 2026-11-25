@@ -1,25 +1,21 @@
 <template>
   <div class="page">
     <!-- 第 1 页：凭证密钥 -->
-    <div class="screen" v-if="currentStep === 'key'">
+    <div class="screen" v-if="currentStep !== 'qr'">
       <div class="key-info">
-        <text class="title">设置凭证密钥</text>
-        <text class="description">首次使用请设置数字密钥；已有账号请输入原密钥。</text>
+        <text class="title">{{ currentStep === 'confirm' ? '确认凭证密钥' : '凭证密钥' }}</text>
+        <text class="description">{{ currentStep === 'confirm' ? '请再次输入刚才设置的数字密钥。' : '首次使用需要设置密钥；已有凭证库请输入原密钥。' }}</text>
         <text class="description">每次启动都需要输入，忘记后无法找回。</text>
         <div class="password-display">
-          <text class="password-dots">{{ vaultPassword ? '● '.repeat(vaultPassword.length) : '输入 8–32 位数字' }}</text>
+          <text class="password-dots">{{ vaultPassword ? '● '.repeat(vaultPassword.length) : (currentStep === 'confirm' ? '再次输入 8–32 位数字' : '输入 8–32 位数字') }}</text>
           <text class="password-count">{{ vaultPassword.length }}/32</text>
         </div>
         <text class="status">{{ status }}</text>
         <div class="login-actions">
           <div class="primary-button" @click="UnlockVault">
-            <text class="button-text">确认并进入扫码页</text>
-          </div>
-          <div class="secondary-button network-test-button" @click="TestSystemHttp">
-            <text class="button-text">测试系统网络</text>
+            <text class="button-text">{{ currentStep === 'confirm' ? '确认密钥并继续' : '确认' }}</text>
           </div>
         </div>
-        <text v-if="networkTestResult" class="network-result">{{ networkTestResult }}</text>
       </div>
 
       <div class="keypad">
@@ -90,9 +86,8 @@ export default {
       status: '请输入凭证库密钥。',
       hint: '请使用手机哔哩哔哩扫描二维码',
       vaultPassword: '',
+      firstPassword: '',
       toast: '',
-      networkTesting: false,
-      networkTestResult: '',
       pollToken: null,
       polling: false
     }
@@ -130,101 +125,52 @@ export default {
       this.currentStep = 'key'
       this.show_qr = false
       this.show_retry = false
-      this.status = '密钥已保留，可以修改后重新继续。'
+      this.vaultPassword = ''
+      this.firstPassword = ''
+      this.currentStep = 'key'
+      this.status = '请输入凭证库密钥。'
       this.hint = '请使用手机哔哩哔哩扫描二维码'
-    },
-    TestSystemHttp() {
-      if (this.networkTesting) return
-      const http = typeof $falcon !== 'undefined' &&
-        $falcon.jsapi && $falcon.jsapi.http
-      if (!http || typeof http.request !== 'function') {
-        this.networkTestResult = '系统 HTTP JSAPI 不可用'
-        return
-      }
-
-      this.networkTesting = true
-      this.networkTestResult = '正在测试系统 HTTPS…'
-      const finish = (message) => {
-        this.networkTesting = false
-        this.networkTestResult = message
-      }
-
-      try {
-        http.request({
-          url: 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate',
-          method: 'GET',
-          header: {
-            'User-Agent': 'Mozilla/5.0'
-          }
-        }, (response) => {
-          if (!response || typeof response !== 'object') {
-            finish('请求已回调，但响应格式无法识别')
-            return
-          }
-
-          const headers = response.headers || response.header || null
-          const headerKeys = headers && typeof headers === 'object'
-            ? Object.keys(headers)
-            : []
-          const cookieKey = headerKeys.find(
-            key => key.toLowerCase() === 'set-cookie'
-          )
-          const cookieValue = cookieKey ? headers[cookieKey] : null
-          const cookieCount = Array.isArray(cookieValue)
-            ? cookieValue.length
-            : (cookieValue ? 1 : 0)
-          const status = response.status || response.statusCode ||
-            response.status_code || response.httpStatus ||
-            response.responseCode || '未知'
-          const body = response.result || response.body ||
-            response.text || response.data || response.response || ''
-          let apiCode = '未解析'
-          let bodyKeys = []
-          if (typeof body === 'string') {
-            try {
-              const parsed = JSON.parse(body)
-              if (parsed && typeof parsed === 'object') {
-                if (typeof parsed.code === 'number') apiCode = String(parsed.code)
-                bodyKeys = Object.keys(parsed).slice(0, 8)
-              }
-            } catch (error) {}
-          } else if (body && typeof body === 'object') {
-            if (typeof body.code === 'number') apiCode = String(body.code)
-            bodyKeys = Object.keys(body).slice(0, 8)
-          }
-
-          const responseKeys = Object.keys(response).slice(0, 12)
-          finish(
-            'HTTPS 返回：' + status +
-            ' · B站 API：' + apiCode +
-            ' · 响应字段：' + (responseKeys.join(',') || '无') +
-            ' · 响应头：' + headerKeys.length + ' 项' +
-            ' · Set-Cookie：' + cookieCount + ' 项' +
-            (bodyKeys.length ? ' · Body字段：' + bodyKeys.join(',') : '')
-          )
-        })
-      } catch (error) {
-        finish('系统 HTTP 请求失败：' +
-          (error && error.message ? error.message : String(error)))
-      }
     },
     async UnlockVault() {
       if (this.vaultPassword.length < 8) {
         this.showToast('数字密钥至少需要 8 位')
         return
       }
-      this.status = '正在验证凭证密钥…'
+
+      if (this.currentStep === 'confirm') {
+        if (this.vaultPassword !== this.firstPassword) {
+          this.vaultPassword = ''
+          this.status = '两次输入不一致，请重新确认。'
+          this.showToast('两次密钥不一致')
+          return
+        }
+        this.firstPassword = ''
+        await this.GetQR()
+        return
+      }
+
+      this.status = '正在检查凭证库…'
       try {
+        const exists = await biliclient.hasCredentialVault()
+        if (!exists) {
+          this.firstPassword = this.vaultPassword
+          this.vaultPassword = ''
+          this.currentStep = 'confirm'
+          this.status = '请再次输入密钥以确认。'
+          return
+        }
+
+        this.status = '正在解锁凭证库…'
         const result = await biliclient.login(false, this.vaultPassword)
         if (result && result.success) {
           this.vaultPassword = ''
           $falcon.navTo('dmlist')
           return
         }
-        this.status = '尚无可用登录凭证，请在下一页扫码登录。'
+        this.status = '凭证库中没有可用账号，请重新登录。'
         await this.GetQR()
       } catch (error) {
-        this.status = '密钥验证失败，请检查密钥是否正确。'
+        this.status = '解锁失败，请检查密钥是否正确。'
         this.showToast(error && error.message ? error.message : String(error))
       }
     },
@@ -364,19 +310,6 @@ export default {
   justify-content: center;
   border-radius: 6px;
   background-color: #ff7da8;
-}
-
-.network-test-button {
-  height: 34px;
-  min-width: 112px;
-  margin-top: 9px;
-  margin-left: 8px;
-}
-
-.network-result {
-  margin-top: 5px;
-  font-size: 11px;
-  color: #b9e6ff;
 }
 
 .button-text {
