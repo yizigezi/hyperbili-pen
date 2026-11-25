@@ -11,7 +11,7 @@ TOOLCHAIN="arm-linux-gnueabihf-"
 
 CA_BUNDLE_COMMIT="024ad1476500f7593a6c08061b1273fd44f35158"
 CA_BUNDLE_URL="https://raw.githubusercontent.com/composer/ca-bundle/$CA_BUNDLE_COMMIT/res/cacert.pem"
-CA_BUNDLE_SHA256="586f451f7a2b5b93347137c4bad87b3baf698591417653aa280c7e5ccefec3bc"
+CA_BUNDLE_GIT_BLOB="c5818b24d021b6244cdc0ee865f997acd627f4fc"
 CA_FILE="$WORK/cacert.pem"
 CA_SOURCE="$WORK/ca_bundle.c"
 CA_HEADER="$WORK/ca_bundle.h"
@@ -43,7 +43,11 @@ fetch_source "curl-$CURL_VERSION" "https://curl.se/download/curl-$CURL_VERSION.t
 # Fetch a pinned Mozilla-derived CA bundle. The checksum makes this reproducible:
 # updating the upstream file requires an intentional checksum review.
 curl -fL "$CA_BUNDLE_URL" -o "$CA_FILE"
-echo "$CA_BUNDLE_SHA256  $CA_FILE" | sha256sum -c -
+CA_BUNDLE_ACTUAL="$(git hash-object "$CA_FILE")"
+if [ "$CA_BUNDLE_ACTUAL" != "$CA_BUNDLE_GIT_BLOB" ]; then
+  echo "CA bundle Git blob hash mismatch: expected $CA_BUNDLE_GIT_BLOB, got $CA_BUNDLE_ACTUAL" >&2
+  exit 1
+fi
 python3 - "$CA_FILE" "$CA_SOURCE" "$CA_HEADER" <<'PY'
 import pathlib
 import sys
