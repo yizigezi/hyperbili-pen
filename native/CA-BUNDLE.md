@@ -4,9 +4,9 @@ The native HTTPS client embeds a Mozilla-derived public CA bundle into
 `libjsapi_hyperhttp.so`. This avoids relying on the X5 firmware having a
 populated `/etc/ssl/certs` directory.
 
-- Upstream source: Composer CA Bundle's `res/cacert.pem`
+- Upstream source: Composer CA Bundle's `res/cacert.pem` at commit `024ad1476500f7593a6c08061b1273fd44f35158`
 - Bundle date: 2026-10-20
-- SHA-256: `beb7e6dfe6499926e52c075c27bcfbe4c957f8609c575b3860273ae2806f63eb`
+- SHA-256: `15e5bdd831e4ac51b97638e157a5c282d0423da223d0311851382aa7cb733d17`
 - License: Mozilla Public License 2.0 (MPL-2.0), inherited from Mozilla's
   certificate source.
 - Approximate payload: 195 KB PEM; final shared-library size increase is
