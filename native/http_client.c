@@ -2,6 +2,7 @@
 #include "http_client.h"
 
 #include <curl/curl.h>
+#include "ca_bundle.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,43 +98,13 @@ static size_t on_body(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return n;
 }
 
-static const char *find_ca_bundle(void) {
-    static const char *const paths[] = {
-        "/etc/ssl/certs/ca-certificates.crt",
-        "/etc/ssl/cert.pem",
-        "/etc/pki/tls/certs/ca-bundle.crt",
-        "/etc/ssl/ca-bundle.pem",
-        "/usr/share/ca-certificates/ca-certificates.crt",
-        NULL
-    };
-    size_t i;
-    for (i = 0; paths[i]; ++i) {
-        if (access(paths[i], R_OK) == 0) return paths[i];
-    }
-    return NULL;
-}
-
-static const char *find_ca_directory(void) {
-    static const char *const paths[] = {
-        "/etc/ssl/certs",
-        "/etc/pki/tls/certs",
-        NULL
-    };
-    size_t i;
-    for (i = 0; paths[i]; ++i) {
-        if (access(paths[i], R_OK | X_OK) == 0) return paths[i];
-    }
-    return NULL;
-}
-
 static void perform_job(hb_job *j) {
     CURL *curl = curl_easy_init();
     CURLcode code;
     hb_buffer headers = {0}, body = {0};
     long status = 0, ssl_verify_result = 0, os_errno = 0;
     char error_buffer[CURL_ERROR_SIZE] = {0};
-    const char *ca_bundle = find_ca_bundle();
-    const char *ca_directory = find_ca_directory();
+    struct curl_blob ca_blob = { (void *)hb_ca_bundle, hb_ca_bundle_len, CURL_BLOB_COPY };
     size_t i;
     j->response = (hb_http_response *)calloc(1, sizeof(*j->response));
     if (!j->response) return;
@@ -164,9 +135,11 @@ static void perform_job(hb_job *j) {
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    /* Prefer a readable firmware CA store; otherwise retain libcurl's compiled defaults. */
-    if (ca_bundle) curl_easy_setopt(curl, CURLOPT_CAINFO, ca_bundle);
-    if (ca_directory) curl_easy_setopt(curl, CURLOPT_CAPATH, ca_directory);
+    /* Embedded Mozilla CA bundle: independent of the firmware CA store. */
+    if (curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, &ca_blob) != CURLE_OK) {
+        snprintf(j->response->error, sizeof(j->response->error), "failed to configure embedded CA bundle");
+        curl_easy_cleanup(curl); free(headers.data); free(body.data); return;
+    }
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "HyperBilibili-Pen/0.1");
     if (j->body && j->body_len) {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, j->body);
@@ -185,10 +158,8 @@ static void perform_job(hb_job *j) {
     if (code != CURLE_OK) {
         const char *detail = error_buffer[0] ? error_buffer : curl_easy_strerror(code);
         snprintf(j->response->error, sizeof(j->response->error),
-            "%s (curl=%d, ssl_verify=%ld, os_errno=%ld, ca=%s, capath=%s)",
-            detail, (int)code, ssl_verify_result, os_errno,
-            ca_bundle ? ca_bundle : "default",
-            ca_directory ? ca_directory : "default");
+            "%s (curl=%d, ssl_verify=%ld, os_errno=%ld, ca=embedded-mozilla)",
+            detail, (int)code, ssl_verify_result, os_errno);
     }
     free(headers.data);
     free(body.data);
