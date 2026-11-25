@@ -7,6 +7,8 @@ extern void registerCModuleLoader(const char*, JSModuleDef* (*)(JSContext*, cons
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #define VAULT_PATH "/userdisk/hyperbili-pen.credentials"
 #define TASK_LIMIT 4
@@ -40,6 +42,18 @@ static void *worker_main(void *unused){
       t->ok=(rc==0);
       if(rc)snprintf(t->error,sizeof(t->error),rc==-3?"vault password incorrect or data corrupted (-3)":(rc==-4?"credential vault not found (-4)":"credential load failed (%d)"),rc);
       else{t->result=malloc(len+1);if(t->result){memcpy(t->result,out,len);t->result[len]=0;}else{t->ok=0;snprintf(t->error,sizeof(t->error),"out of memory");}cs_free(out,len);}
+    }else if(!strcmp(t->op,"exists")){
+      struct stat st;
+      if (lstat(VAULT_PATH, &st) == 0) {
+        t->ok = 1;
+        t->result = strdup(S_ISREG(st.st_mode) ? "1" : "0");
+        if (!t->result) { t->ok = 0; snprintf(t->error, sizeof(t->error), "out of memory"); }
+      } else if (errno == ENOENT) {
+        t->ok = 1; t->result = strdup("0");
+        if (!t->result) { t->ok = 0; snprintf(t->error, sizeof(t->error), "out of memory"); }
+      } else {
+        t->ok = 0; snprintf(t->error, sizeof(t->error), "credential stat failed (%d)", errno);
+      }
     }else if(!strcmp(t->op,"delete")){
       int rc=cs_delete(VAULT_PATH);t->ok=(rc==0);if(rc)snprintf(t->error,sizeof(t->error),"credential delete failed (%d)",rc);
     }else{t->ok=0;snprintf(t->error,sizeof(t->error),"unknown operation");}
@@ -53,8 +67,8 @@ static JSValue js_submit(JSContext*ctx,JSValueConst this_val,int argc,JSValueCon
   op=JS_ToCString(ctx,argv[0]);pw=JS_ToCString(ctx,argv[1]);
   if(argc>2&&!JS_IsNull(argv[2])&&!JS_IsUndefined(argv[2]))data=JS_ToCString(ctx,argv[2]);
   if(!op||!pw||(!strcmp(op,"store")&&!data)){if(op)JS_FreeCString(ctx,op);if(pw)JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowTypeError(ctx,"invalid credential arguments");}
-  if(strcmp(op,"store")&&strcmp(op,"load")&&strcmp(op,"delete")){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowTypeError(ctx,"unsupported credential operation");}
-  if(strcmp(op,"delete")&&strlen(pw)<8){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowRangeError(ctx,"vault password must be at least 8 characters");}
+  if(strcmp(op,"store")&&strcmp(op,"load")&&strcmp(op,"delete")&&strcmp(op,"exists")){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowTypeError(ctx,"unsupported credential operation");}
+  if((!strcmp(op,"store")||!strcmp(op,"load"))&&strlen(pw)<8){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowRangeError(ctx,"vault password must be at least 8 characters");}
   if(ensure_worker()){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowInternalError(ctx,"credential worker unavailable");}
   t=calloc(1,sizeof(*t));if(!t){JS_FreeCString(ctx,op);JS_FreeCString(ctx,pw);if(data)JS_FreeCString(ctx,data);return JS_ThrowOutOfMemory(ctx);}
   snprintf(t->op,sizeof(t->op),"%s",op);t->password=strdup(pw);if(data)t->data=strdup(data);
