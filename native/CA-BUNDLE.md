@@ -6,7 +6,7 @@ populated `/etc/ssl/certs` directory.
 
 - Upstream source: Composer CA Bundle's `res/cacert.pem` at commit `024ad1476500f7593a6c08061b1273fd44f35158`
 - Bundle date: 2026-10-20
-- SHA-256: `15e5bdd831e4ac51b97638e157a5c282d0423da223d0311851382aa7cb733d17`
+- SHA-256: `586f451f7a2b5b93347137c4bad87b3baf698591417653aa280c7e5ccefec3bc`
 - License: Mozilla Public License 2.0 (MPL-2.0), inherited from Mozilla's
   certificate source.
 - Approximate payload: 195 KB PEM; final shared-library size increase is
