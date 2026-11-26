@@ -1,11 +1,11 @@
 /**
  * 网络适配层：统一不同运行环境的 HTTP 能力。
  *
- * 请求优先级：
- *   1) `import('hyperHttp')` —— 项目自带 libcurl 原生 JSAPI，worker 线程执行网络 I/O
- *   2) `$falcon.jsapi.http.request(opts, cb)` —— 固件自带 HTTP JSAPI
- *   3) `import('http')` —— 若固件把它注册成 JSAPI 模块
- *   4) `global.execShell('curl ...')` —— 最后兜底；Set-Cookie 完整性取决于系统 curl 输出
+ * 三级降级（纯前端，不依赖原生模块）：
+ *   1) `$falcon.jsapi.http.request(opts, cb)` —— 笔上 Falcon 的 http jsapi
+ *      （weatheronyddictpen 实证存在；响应形状未完全公开，故 rawResponse 原样保留）
+ *   2) `import('http')` —— 若固件把它注册成 jsapi 模块
+ *   3) `global.execShell('curl ...')` —— PenMusic 文档化的 shell 桥，curl -i 保头
  *
  * 对外：
  *   rawRequest({url, method, headers, body}) -> {status, headers, bodyText, rawResponse, source}
@@ -179,101 +179,10 @@ async function requestViaCurl({ url, method, headers, body }) {
   };
 }
 
-
-// ---- Native libcurl backend (registered by libjsapi_hyperhttp.so) ----
-
-function parseNativeHeaders(raw) {
-  const blocks = String(raw || '').split(/\r?\n\r?\n/);
-  let status = 0;
-  let selected = [];
-  const allSetCookies = [];
-  for (const block of blocks) {
-    const lines = block.split(/\r?\n/);
-    if (!/^HTTP\//.test(lines[0] || '')) continue;
-    const match = lines[0].match(/HTTP\/[^ ]+\s+(\d{3})/);
-    status = match ? parseInt(match[1], 10) : status;
-    selected = lines.slice(1);
-    // Cookies set on an intermediate redirect response are valid too.
-    for (const line of selected) {
-      const index = line.indexOf(':');
-      if (index > 0 && line.slice(0, index).trim().toLowerCase() === 'set-cookie') {
-        allSetCookies.push(line.slice(index + 1).trim());
-      }
-    }
-  }
-  const headers = {};
-  for (const line of selected) {
-    const index = line.indexOf(':');
-    if (index <= 0) continue;
-    const key = line.slice(0, index).trim().toLowerCase();
-    if (key === 'set-cookie') continue;
-    const value = line.slice(index + 1).trim();
-    if (headers[key] !== undefined) {
-      headers[key] = Array.isArray(headers[key]) ? headers[key].concat([value]) : [headers[key], value];
-    } else {
-      headers[key] = value;
-    }
-  }
-  if (allSetCookies.length) headers['set-cookie'] = allSetCookies;
-  return { status, headers };
-}
-
-async function requestViaNativeCurl({ url, method, headers, body }) {
-  let module;
-  try {
-    module = await import('hyperHttp');
-  } catch (cause) {
-    const error = new Error('hyperHttp native JSAPI is unavailable: ' + String(cause));
-    error.code = 'NATIVE_HTTP_UNAVAILABLE';
-    throw error;
-  }
-  const api = module.default || module;
-  if (!api || typeof api.submit !== 'function' || typeof api.poll !== 'function') {
-    const error = new Error('hyperHttp native JSAPI is unavailable');
-    error.code = 'NATIVE_HTTP_UNAVAILABLE';
-    throw error;
-  }
-  const headerLines = Object.keys(headers || {}).map((key) => key + ': ' + headers[key]);
-  const id = api.submit(url, method || 'GET', headerLines, body == null ? null : String(body), 15000);
-  return new Promise((resolve, reject) => {
-    const startedAt = Date.now();
-    const poll = () => {
-      let result;
-      try {
-        result = api.poll(id);
-      } catch (error) {
-        reject(error);
-        return;
-      }
-      if (result === null) {
-        if (Date.now() - startedAt > 35000) {
-          reject(new Error('native HTTP request timed out while waiting for completion'));
-          return;
-        }
-        setTimeout(poll, 20);
-        return;
-      }
-      if (result.error) {
-        reject(new Error(result.error));
-        return;
-      }
-      const parsed = parseNativeHeaders(result.headersRaw);
-      resolve({
-        status: result.status || parsed.status,
-        headers: parsed.headers,
-        bodyText: result.bodyText || '',
-        rawResponse: result,
-        source: 'native-libcurl'
-      });
-    };
-    poll();
-  });
-}
-
 // ---- 对外接口 ----
 
 export async function rawRequest({ url, method, headers, body }) {
-  const tiers = [requestViaNativeCurl, requestViaFalconHttp, requestViaHttpModule, requestViaCurl];
+  const tiers = [requestViaFalconHttp, requestViaHttpModule, requestViaCurl];
   let lastErr = null;
   for (const tier of tiers) {
     try {
@@ -282,9 +191,6 @@ export async function rawRequest({ url, method, headers, body }) {
         res.headers === null ? '(headers 不可见)' : '');
       return res;
     } catch (err) {
-      if (tier === requestViaNativeCurl && err.code !== 'NATIVE_HTTP_UNAVAILABLE') {
-        throw err;
-      }
       lastErr = err;
     }
   }
