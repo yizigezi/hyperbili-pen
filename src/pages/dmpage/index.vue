@@ -78,6 +78,7 @@ export default {
       targetId: 0,
       myPic: '',
       targetPic: '',
+      preview: false,
       messages: [],
       input_text: '',
       loading: true,
@@ -93,11 +94,16 @@ export default {
     onShow() {
       this.applyOptions()
       this.$page.clearTimer(this.refreshToken)
+      if (this.preview) {
+        this.loading = false
+        return
+      }
       this.UpdateMessages()
       this.refreshToken = this.$page.setInterval(() => this.UpdateMessages(), REFRESH_MS)
     },
     onLoad(opts) {
       this.applyOptions(opts)
+      if (this.preview) this.SetPreviewMessages()
     },
     onNewOptions(opts) {
       const oldTarget = this.targetId
@@ -112,6 +118,34 @@ export default {
       if (o.targetId !== undefined) this.targetId = o.targetId
       if (o.myPic !== undefined) this.myPic = o.myPic
       if (o.targetPic !== undefined) this.targetPic = o.targetPic
+      this.preview = o.preview === true || o.preview === 'true'
+    },
+    SetPreviewMessages() {
+      this.myId = 1
+      this.targetId = 2
+      this.targetPic = ''
+      this.myPic = ''
+      this.messages = [
+        {
+          msg_seqno: 1001,
+          receiver_id: this.myId,
+          msg_type: 1,
+          content: JSON.stringify({ content: '你好！这是私聊页面的预览消息。' })
+        },
+        {
+          msg_seqno: 1002,
+          receiver_id: this.targetId,
+          msg_type: 1,
+          content: JSON.stringify({ content: '底部输入框可以点开试试系统输入法。' })
+        },
+        {
+          msg_seqno: 1003,
+          receiver_id: this.myId,
+          msg_type: 1,
+          content: JSON.stringify({ content: '预览模式不会请求真实私信，也不会发送消息。' })
+        }
+      ]
+      this.loading = false
     },
     onDestroy() {
       this.$page.clearTimer(this.refreshToken)
@@ -148,6 +182,10 @@ export default {
       }
     },
     async SendMsg() {
+      if (this.preview) {
+        this.showToast('预览模式不发送真实消息')
+        return
+      }
       const text = String(this.input_text || '').trim()
       if (!text) return
       try {
