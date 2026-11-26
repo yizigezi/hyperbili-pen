@@ -157,7 +157,7 @@ export const BilibiliClientLoginMethods = {
       if (response && response.data && response.data.data) {
         const d = response.data.data;
         if (d.code === 0) {
-          // 保存扫码确认后的响应诊断信息；Cookie、Token 等敏感字段会先脱敏。
+          // 扫码确认后直接打印响应内容；Cookie、Token 等敏感字段先脱敏。\n          logger.log('扫码登录接口返回内容：', JSON.stringify(sanitizeQrLog(response, '', 0)));
           try {
             await appendQrLoginLog(response);
           } catch (logError) {
