@@ -15,6 +15,9 @@
           <div class="primary-button" @click="UnlockVault">
             <text class="button-text">{{ currentStep === 'confirm' ? '确认密钥并继续' : '确认' }}</text>
           </div>
+          <div class="preview-button" @click="PreviewDM">
+            <text class="button-text">测试私聊界面</text>
+          </div>
         </div>
       </div>
 
@@ -102,6 +105,9 @@ export default {
     },
     onDestroy() {
       this.StopPolling()
+    },
+    PreviewDM() {
+      $falcon.navTo('dmpage', { preview: true })
     },
     AppendDigit(digit) {
       if (this.vaultPassword.length >= 32) return
@@ -298,6 +304,18 @@ export default {
   flex-direction: row;
   align-items: center;
   margin-top: 2px;
+}
+
+.preview-button {
+  height: 34px;
+  min-width: 124px;
+  margin-top: 9px;
+  margin-left: 8px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background-color: #50505a;
 }
 
 .primary-button {
