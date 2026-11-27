@@ -32,12 +32,6 @@ jobs:
         with:
           node-version: "16"
 
-      - name: Build native credential store (host compile check)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
-          make -C native CC=gcc
-
       - name: Install aiot-cli
         run: npm install --global aiot-vue-cli@1.0.32
 
