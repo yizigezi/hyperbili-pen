@@ -56,6 +56,12 @@
         <text class="description">{{ hint }}</text>
         <text class="status">{{ status }}</text>
         <text class="key-ready">凭证密钥已设置 · {{ vaultPassword.length }} 位</text>
+      <div class="response-panel" v-if="qrResponse">
+        <text class="response-title">扫码接口返回内容</text>
+        <scroll class="response-scroll" scroll-y="true">
+          <text class="response-content">{{ qrResponse }}</text>
+        </scroll>
+      </div>
         <div class="actions">
           <div class="secondary-button" @click="BackToKey"><text class="button-text">返回</text></div>
           <div class="primary-button action-primary" v-if="show_retry" @click="GetQR"><text class="button-text">刷新二维码</text></div>
@@ -92,7 +98,8 @@ export default {
       firstPassword: '',
       toast: '',
       pollToken: null,
-      polling: false
+      polling: false,
+      qrResponse: ''
     }
   },
   methods: {
@@ -393,7 +400,7 @@ export default {
   color: #585858;
 }
 
-.qr-info {
+.response-panel {\n  width: 100%;\n  height: 118px;\n  margin-top: 8px;\n  padding: 6px;\n  background-color: #24242b;\n  border-radius: 6px;\n  flex-direction: column;\n}\n\n.response-title {\n  font-size: 12px;\n  color: #ffb4ce;\n}\n\n.response-scroll {\n  width: 100%;\n  flex: 1;\n  margin-top: 4px;\n}\n\n.response-content {\n  font-size: 10px;\n  color: #eeeeee;\n}\n\n.qr-info {
   flex: 1;
   height: 100%;
   margin-left: 22px;
