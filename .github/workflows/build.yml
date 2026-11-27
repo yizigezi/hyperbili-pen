@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - "ui/**"
+      - "debug/**"
   pull_request:
     branches:
       - master
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   app-build:
-    needs: native-http
+    needs: native-credential
     name: Falcon app package
     runs-on: ubuntu-latest
     steps:
@@ -46,10 +47,10 @@ jobs:
       - name: Check project
         run: npm run check
 
-      - name: Download ARMv7 native HTTP JSAPI
+      - name: Download ARMv7 native credential JSAPI
         uses: actions/download-artifact@v4
         with:
-          name: hyperbili-native-http-armv7
+          name: hyperbili-native-credential-armv7
           path: libs
 
       - name: Build production AMR
@@ -63,8 +64,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  native-http:
-    name: ARMv7 libcurl native HTTP
+  native-credential:
+    name: ARMv7 native credential vault
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -73,19 +74,19 @@ jobs:
       - name: Install ARM cross toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf make perl python3 python3-pip curl file
+          sudo apt-get install -y binutils-arm-linux-gnueabihf make perl python3 python3-pip curl file
           python3 -m pip install --break-system-packages ziglang==0.17.1
 
-      - name: Build bundled libcurl and async HTTP client
+      - name: Build native credential JSAPI
         run: |
-          bash native/build-libcurl-armv7.sh
-          file native/dist/libjsapi_hyperhttp.so
-          readelf -h native/dist/libjsapi_hyperhttp.so | grep -E 'Class:|Machine:'
+          bash native/build-credential-armv7.sh
+          file libs/libjsapi_hypercredential.so
+          readelf -h libs/libjsapi_hypercredential.so | grep -E 'Class:|Machine:'
 
-      - name: Upload native HTTP library
+      - name: Upload native credential JSAPI
         uses: actions/upload-artifact@v4
         with:
-          name: hyperbili-native-http-armv7
-          path: libs/libjsapi_hyperhttp.so
+          name: hyperbili-native-credential-armv7
+          path: libs/libjsapi_hypercredential.so
           if-no-files-found: error
           retention-days: 14
