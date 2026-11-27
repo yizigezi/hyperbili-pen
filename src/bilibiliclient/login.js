@@ -180,9 +180,9 @@ export const BilibiliClientLoginMethods = {
             await this.updateBUVID();
             await this.storeAccountData(vaultPassword);
             logger.log('二维码登录并验证账号状态成功');
-            return { success: true, message: '登录成功', code: 0 };
+            return { success: true, message: '登录成功', code: 0, responsePreview: JSON.stringify(sanitizeQrLog(response, '', 0), null, 2) };
           }
-          return { success: false, message: '登录失败：响应中没有 Set-Cookie', code: 0 };
+          return { success: false, message: '登录失败：响应中没有 Set-Cookie', code: 0, responsePreview: JSON.stringify(sanitizeQrLog(response, '', 0), null, 2) };
         }
         // qrcode/poll 业务码：86101 未扫码 / 86090 已扫码待确认 / 86038 二维码过期
         const msg =
