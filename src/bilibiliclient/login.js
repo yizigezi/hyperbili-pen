@@ -9,12 +9,6 @@ import credential from '../utils/credential.js';
 import logger from '../utils/logger.js';
 import http from '../utils/http.js';
 
-const QR_LOGIN_LOG = '/userdisk/Favorite/qr-login.log';
-
-function shellQuote(value) {
-  return "'" + String(value).replace(/'/g, "'\\''") + "'";
-}
-
 function sanitizeQrLog(value, key, depth) {
   const sensitiveKey = /cookie|sessdata|bili.?jct|dede.?userid|(^|[_-])sid$|token|authorization|csrf|credential|password|qrcode.?key/i;
   if (key && sensitiveKey.test(key)) return '[REDACTED]';
@@ -36,32 +30,6 @@ function sanitizeQrLog(value, key, depth) {
     return result;
   }
   return String(value);
-}
-
-async function appendQrLoginLog(response) {
-  let exec;
-  if (typeof global !== 'undefined' && global && typeof global.execShell === 'function') {
-    exec = global.execShell.bind(global);
-  } else if (typeof globalThis !== 'undefined' && typeof globalThis.execShell === 'function') {
-    exec = globalThis.execShell.bind(globalThis);
-  } else {
-    const module = await import('global');
-    const Global = module.default || module.Global;
-    const api = Global && typeof Global === 'function' ? new Global() : (Global || module);
-    if (!api || typeof api.execShell !== 'function') throw new Error('当前环境无 execShell');
-    exec = api.execShell.bind(api);
-  }
-
-  const entry = {
-    time: new Date().toISOString(),
-    event: 'qr-login-confirmed',
-    response: sanitizeQrLog(response, '', 0)
-  };
-  const line = JSON.stringify(entry);
-  const command = 'mkdir -p /userdisk/Favorite && touch ' + shellQuote(QR_LOGIN_LOG) +
-    ' && chmod 600 ' + shellQuote(QR_LOGIN_LOG) +
-    ' && printf \'%s\\n\' ' + shellQuote(line) + ' >> ' + shellQuote(QR_LOGIN_LOG);
-  await exec(command);
 }
 
 export const BilibiliClientLoginMethods = {
@@ -157,13 +125,7 @@ export const BilibiliClientLoginMethods = {
       if (response && response.data && response.data.data) {
         const d = response.data.data;
         if (d.code === 0) {
-          // 扫码确认后直接打印响应内容；Cookie、Token 等敏感字段先脱敏。
-          logger.log('扫码登录接口返回内容：', JSON.stringify(sanitizeQrLog(response, '', 0)));
-          try {
-            await appendQrLoginLog(response);
-          } catch (logError) {
-            logger.warn('扫码登录响应日志写入失败：', logError && logError.message ? logError.message : logError);
-          }
+          // 扫码确认后的响应由页面显示；敏感字段先脱敏，不写入文件。
           // 从响应头提取 Cookies（适配层键为小写）
           const setCookie =
             (response.headers && (response.headers['set-cookie'] || response.headers['Set-Cookie'])) ||
