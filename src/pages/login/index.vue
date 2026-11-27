@@ -56,12 +56,12 @@
         <text class="description">{{ hint }}</text>
         <text class="status">{{ status }}</text>
         <text class="key-ready">凭证密钥已设置 · {{ vaultPassword.length }} 位</text>
-      <div class="response-panel" v-if="qrResponse">
-        <text class="response-title">扫码接口返回内容</text>
-        <scroll class="response-scroll" scroll-y="true">
-          <text class="response-content">{{ qrResponse }}</text>
-        </scroll>
-      </div>
+        <div class="response-panel" v-if="qrResponse">
+          <text class="response-title">扫码接口返回内容</text>
+          <scroll class="response-scroll" scroll-y="true">
+            <text class="response-content">{{ qrResponse }}</text>
+          </scroll>
+        </div>
         <div class="actions">
           <div class="secondary-button" @click="BackToKey"><text class="button-text">返回</text></div>
           <div class="primary-button action-primary" v-if="show_retry" @click="GetQR"><text class="button-text">刷新二维码</text></div>
@@ -216,13 +216,19 @@ export default {
       if (!this.polling) return
       try {
         const result = await biliclient.login(true, this.vaultPassword)
-        if (result.responsePreview) this.qrResponse = result.responsePreview
+        if (result.responsePreview) {
+          this.qrResponse = result.responsePreview
+          this.StopPolling()
+        }
         if (result.success) {
           this.StopPolling()
           this.vaultPassword = ''
           this.status = '扫码登录成功，响应内容已显示。'
         } else {
           this.hint = result.message || '等待扫码…'
+          if (result.responsePreview) {
+            this.status = result.message || '扫码已确认，接口响应内容已显示。'
+          }
           if (result.code === 86038) {
             this.StopPolling()
             this.status = '二维码已过期，请刷新。'
@@ -401,7 +407,31 @@ export default {
   color: #585858;
 }
 
-.response-panel {\n  width: 100%;\n  height: 118px;\n  margin-top: 8px;\n  padding: 6px;\n  background-color: #24242b;\n  border-radius: 6px;\n  flex-direction: column;\n}\n\n.response-title {\n  font-size: 12px;\n  color: #ffb4ce;\n}\n\n.response-scroll {\n  width: 100%;\n  flex: 1;\n  margin-top: 4px;\n}\n\n.response-content {\n  font-size: 10px;\n  color: #eeeeee;\n}\n\n.qr-info {
+.response-panel {
+  width: 100%;
+  height: 118px;
+  margin-top: 8px;
+  padding: 6px;
+  background-color: #24242b;
+  border-radius: 6px;
+  flex-direction: column;
+}
+
+.response-title {
+  font-size: 12px;
+  color: #ffb4ce;
+}
+
+.response-scroll {
+  width: 100%;
+  flex: 1;
+  margin-top: 4px;
+}
+
+.response-content {
+  font-size: 10px;
+  color: #eeeeee;
+}\n\n.qr-info {
   flex: 1;
   height: 100%;
   margin-left: 22px;
