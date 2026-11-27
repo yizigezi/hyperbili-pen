@@ -216,10 +216,11 @@ export default {
       if (!this.polling) return
       try {
         const result = await biliclient.login(true, this.vaultPassword)
+        if (result.responsePreview) this.qrResponse = result.responsePreview
         if (result.success) {
           this.StopPolling()
           this.vaultPassword = ''
-          $falcon.navTo('dmlist')
+          this.status = '扫码登录成功，响应内容已显示。'
         } else {
           this.hint = result.message || '等待扫码…'
           if (result.code === 86038) {
