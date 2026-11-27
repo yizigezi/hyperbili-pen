@@ -171,11 +171,11 @@ export const BilibiliClientLoginMethods = {
           if (setCookie) {
             this.extractCookiesFromResponse(setCookie);
             if (!this.sessData || !this.biliJct || !this.dedeUserID || !this.sid) {
-              return { success: false, message: '登录失败：Set-Cookie 缺少必要字段', code: 0 };
+              return { success: false, message: '登录失败：Set-Cookie 缺少必要字段', code: 0, responsePreview: JSON.stringify(sanitizeQrLog(response, '', 0), null, 2) };
             }
             const accountValid = await this.updateAccountInfo();
             if (!accountValid) {
-              return { success: false, message: '登录失败：账号状态验证未通过', code: 0 };
+              return { success: false, message: '登录失败：账号状态验证未通过', code: 0, responsePreview: JSON.stringify(sanitizeQrLog(response, '', 0), null, 2) };
             }
             await this.updateBUVID();
             await this.storeAccountData(vaultPassword);
