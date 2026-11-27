@@ -49,7 +49,7 @@ readelf -A "$SO" | grep -q 'Tag_ABI_VFP_args: VFP registers'
 GLIBC_MAX="$(readelf -V "$SO" | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1 || true)"
 if [ -n "$GLIBC_MAX" ]; then
   GLIBC_VER="${GLIBC_MAX#GLIBC_}"
-  if [ "$(printf '%s\\n%s\\n' "2.23" "$GLIBC_VER" | sort -V | tail -1)" != "2.23" ]; then
+  if [ "$(printf '%s\n%s\n' "2.23" "$GLIBC_VER" | sort -V | tail -1)" != "2.23" ]; then
     echo "glibc symbol version too new: $GLIBC_MAX" >&2
     exit 1
   fi
